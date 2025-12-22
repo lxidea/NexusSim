@@ -1,0 +1,36 @@
+# Cantilever beam simulation configuration
+
+simulation:
+  name: "cantilever_beam"
+  description: "2m aluminum cantilever beam under end load"
+  time_step: 0.0
+  final_time: 0.002
+  cfl_factor: 0.9
+
+mesh:
+  file: "../examples/meshes/cantilever_beam.mesh"
+  element_blocks:
+    - name: "beam_elements"
+      material: "aluminum"
+
+materials:
+  aluminum:
+    density: 2700.0
+    E: 70.0e9
+    nu: 0.33
+
+boundary_conditions:
+  displacement:
+    - nodeset: "fixed"
+      dof: [0, 1, 2]
+      value: 0.0
+  force:
+    - nodeset: "free"
+      dof: 2
+      value: -1000.0
+
+output:
+  format: "vtk"
+  frequency: 1
+  directory: "."
+  base_name: "cantilever_config"

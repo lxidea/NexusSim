@@ -1,0 +1,92 @@
+# Examples
+
+add_executable(simple_mesh_example simple_mesh_example.cpp)
+target_link_libraries(simple_mesh_example PRIVATE nexussim)
+
+add_executable(kokkos_mpi_test kokkos_mpi_test.cpp)
+target_link_libraries(kokkos_mpi_test PRIVATE nexussim)
+
+add_executable(hex8_element_test hex8_element_test.cpp)
+target_link_libraries(hex8_element_test PRIVATE nexussim)
+
+add_executable(element_library_test element_library_test.cpp)
+target_link_libraries(element_library_test PRIVATE nexussim)
+
+add_executable(fem_solver_test fem_solver_test.cpp)
+target_link_libraries(fem_solver_test PRIVATE nexussim)
+
+add_executable(mesh_reader_test mesh_reader_test.cpp)
+target_link_libraries(mesh_reader_test PRIVATE nexussim)
+
+add_executable(config_driven_test config_driven_test.cpp)
+target_link_libraries(config_driven_test PRIVATE nexussim)
+
+add_executable(patch_test patch_test.cpp)
+target_link_libraries(patch_test PRIVATE nexussim)
+
+add_executable(bending_test bending_test.cpp)
+target_link_libraries(bending_test PRIVATE nexussim)
+
+add_executable(hex20_bending_test hex20_bending_test.cpp)
+target_link_libraries(hex20_bending_test PRIVATE nexussim)
+
+add_executable(hex20_single_element_test hex20_single_element_test.cpp)
+target_link_libraries(hex20_single_element_test PRIVATE nexussim)
+
+add_executable(hex20_single_element_bending hex20_single_element_bending.cpp)
+target_link_libraries(hex20_single_element_bending PRIVATE nexussim)
+
+add_executable(hex20_derivative_check hex20_derivative_check.cpp)
+target_link_libraries(hex20_derivative_check PRIVATE nexussim)
+
+add_executable(hex20_mass_debug hex20_mass_debug.cpp)
+target_link_libraries(hex20_mass_debug PRIVATE nexussim)
+
+add_executable(hex20_connectivity_debug hex20_connectivity_debug.cpp)
+target_link_libraries(hex20_connectivity_debug PRIVATE nexussim)
+
+add_executable(hex20_derivative_verification hex20_derivative_verification.cpp)
+target_link_libraries(hex20_derivative_verification PRIVATE nexussim)
+
+add_executable(tet4_compression_test tet4_compression_test.cpp)
+target_link_libraries(tet4_compression_test PRIVATE nexussim)
+
+add_executable(tet4_compression_solver_test tet4_compression_solver_test.cpp)
+target_link_libraries(tet4_compression_solver_test PRIVATE nexussim)
+
+add_executable(tet10_element_test tet10_element_test.cpp)
+target_link_libraries(tet10_element_test PRIVATE nexussim)
+
+add_executable(shell4_plate_test shell4_plate_test.cpp)
+target_link_libraries(shell4_plate_test PRIVATE nexussim)
+
+add_executable(material_library_demo material_library_demo.cpp)
+target_link_libraries(material_library_demo PRIVATE nexussim)
+
+add_executable(complete_workflow_demo complete_workflow_demo.cpp)
+target_link_libraries(complete_workflow_demo PRIVATE nexussim)
+
+add_executable(contact_sphere_plate_test contact_sphere_plate_test.cpp)
+target_link_libraries(contact_sphere_plate_test PRIVATE nexussim)
+
+add_executable(wedge6_element_test wedge6_element_test.cpp)
+target_link_libraries(wedge6_element_test PRIVATE nexussim)
+
+add_executable(beam2_element_test beam2_element_test.cpp)
+target_link_libraries(beam2_element_test PRIVATE nexussim)
+
+add_executable(wedge6_debug_test wedge6_debug_test.cpp)
+target_link_libraries(wedge6_debug_test PRIVATE nexussim)
+
+add_executable(comprehensive_element_validation comprehensive_element_validation.cpp)
+target_link_libraries(comprehensive_element_validation PRIVATE nexussim)
+
+add_executable(gpu_performance_benchmark gpu_performance_benchmark.cpp)
+target_link_libraries(gpu_performance_benchmark PRIVATE nexussim)
+
+add_executable(hex20_debug_forces hex20_debug_forces.cpp)
+target_link_libraries(hex20_debug_forces PRIVATE nexussim)
+
+# Install examples
+install(TARGETS simple_mesh_example kokkos_mpi_test hex8_element_test element_library_test fem_solver_test mesh_reader_test config_driven_test patch_test bending_test hex20_bending_test
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/examples)

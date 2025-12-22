@@ -1,0 +1,16 @@
+# Migration Wave Ownership & Milestones
+> See `README_NEXTGEN.md` for documentation map and reading order.
+
+| Wave | Scope (from roadmap) | Target Window | Owner(s) | Key Checkpoints |
+| --- | --- | --- | --- | --- |
+| Wave 0 – Enablement | Project skeleton, data schema translation, Fortran interop scaffolding.[Legacy_Migration_Roadmap.md:10][Legacy_Migration_Roadmap.md:12][Legacy_Migration_Roadmap.md:14] | Weeks 0-4 | **Platform Infrastructure Lead** (A. Chen) with Build/DevOps squad | - Day 5: CMake presets + Conan pipeline running<br>- Day 15: Mesh SOA containers passing unit tests<br>- Day 28: Fortran interop harness demos implicit kernel wrapper |
+| Wave 1 – Preprocessing & Mesh | Starter parity, deck readers, partitioning & ghost layers.[Legacy_Migration_Roadmap.md:16][Legacy_Migration_Roadmap.md:18][Legacy_Migration_Roadmap.md:20] | Weeks 4-10 | **Mesh & Preprocessing Lead** (L. Patel) with Data Services team | - Week 6: RAD/LS-DYNA reader API stable<br>- Week 8: METIS partition integration validated<br>- Week 10: Legacy starter regression suite green |
+| Wave 2 – Explicit Solver Core | Element kernels, time integration loop, contact modules.[Legacy_Migration_Roadmap.md:22][Legacy_Migration_Roadmap.md:24][Legacy_Migration_Roadmap.md:26] | Weeks 8-18 | **Explicit Solver Lead** (M. Rivera) plus GPU kernel taskforce | - Week 12: Shell/solid GPU kernels reach parity<br>- Week 15: Explicit integrator strategy merged<br>- Week 18: Contact prototype passing impact benchmark |
+| Wave 3 – Implicit Solver Suite | `imp_solv.F` decomposition, solver backend integration, diagnostics.[Legacy_Migration_Roadmap.md:28][Legacy_Migration_Roadmap.md:30][Legacy_Migration_Roadmap.md:32] | Weeks 16-32 | **Implicit Solver Lead** (S. Nakamura) with Numerics guild | - Week 20: PETSc hooked into linear solver API<br>- Week 26: Nonlinear convergence monitor reporting<br>- Week 32: Static benchmark matches OpenRadioss results |
+| Wave 4 – Multi-Physics & Coupling | Coupling framework, meshfree integration, secondary physics plugins.[Legacy_Migration_Roadmap.md:34][Legacy_Migration_Roadmap.md:36][Legacy_Migration_Roadmap.md:38] | Weeks 24-40 | **Multi-Physics Lead** (E. Gomez) coordinating Physics pods | - Week 28: Field registry + coupling operators working<br>- Week 34: SPH/DEM bridge domain validated<br>- Week 40: FSI demo scenario approved |
+| Wave 5 – Optimisation & Decommissioning | GPU optimisation, legacy retirement, documentation/training.[Legacy_Migration_Roadmap.md:40][Legacy_Migration_Roadmap.md:42][Legacy_Migration_Roadmap.md:44] | Weeks 36-52 | **Performance & QA Lead** (R. Singh) with Documentation sprint | - Week 40: Profiling dashboard online<br>- Week 46: First wave of legacy deprecation completed<br>- Week 52: Release candidate docs & training delivered |
+
+### Cross-Wave Coordination
+
+- **Program Manager** (C. Lee) to host bi-weekly integration syncs, ensuring dependencies (e.g., Wave 1 mesh services feeding Wave 2 kernels) stay aligned.
+- **Architecture Steering Group** reviews decision log updates at the end of each wave, referencing open questions captured in the Architecture Decision Summary.[Architecture_Decisions.md:5][Architecture_Decisions.md:12][Architecture_Decisions.md:27]

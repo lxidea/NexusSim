@@ -1,0 +1,210 @@
+# =============================================================================
+# NexusSim Comprehensive Input Example
+# =============================================================================
+# This file demonstrates all supported features of the NexusSim YAML format
+# Version: 0.1.0
+# Date: 2025-11-05
+#
+# Usage: ./bin/config_driven_test comprehensive_example.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# SIMULATION PARAMETERS
+# -----------------------------------------------------------------------------
+simulation:
+  name: "comprehensive_demo"
+  description: "Demonstrates all NexusSim YAML features"
+
+  # Solver type: explicit_dynamics, implicit_static, modal_analysis
+  type: "explicit_dynamics"
+
+  # Time integration parameters
+  time_step: 0.0           # 0.0 = automatic (CFL-based)
+  final_time: 0.01         # End time in seconds
+  cfl_factor: 0.9          # CFL safety factor (0.5-0.95)
+
+  # Damping (optional, for numerical stability)
+  damping:
+    type: "rayleigh"       # rayleigh, artificial, none
+    alpha: 0.0             # Mass-proportional damping
+    beta: 0.001            # Stiffness-proportional damping
+
+# -----------------------------------------------------------------------------
+# MESH DEFINITION
+# -----------------------------------------------------------------------------
+mesh:
+  # Mesh file (simple ASCII format, Exodus, etc.)
+  file: "../examples/meshes/cantilever_beam.mesh"
+
+  # Element blocks (parts)
+  element_blocks:
+    - name: "beam_main"
+      material: "aluminum_6061"
+      element_type: "HEX8"   # HEX8, HEX20, TET4, TET10, SHELL4, BEAM2
+
+    - name: "stiffener"
+      material: "steel_mild"
+      element_type: "SHELL4"
+      thickness: 0.002       # Shell thickness in meters
+
+# -----------------------------------------------------------------------------
+# MATERIALS
+# -----------------------------------------------------------------------------
+materials:
+  # Linear elastic material
+  aluminum_6061:
+    type: "elastic"
+    density: 2700.0         # kg/m³
+    E: 69.0e9               # Young's modulus (Pa)
+    nu: 0.33                # Poisson's ratio
+
+  # Another material definition
+  steel_mild:
+    type: "elastic"
+    density: 7850.0
+    E: 210.0e9
+    nu: 0.30
+
+  # Reference materials from built-in library (future feature)
+  # titanium:
+  #   from_library: "Ti-6Al-4V"
+
+# -----------------------------------------------------------------------------
+# BOUNDARY CONDITIONS
+# -----------------------------------------------------------------------------
+boundary_conditions:
+  # Fixed displacement BCs
+  displacement:
+    - nodeset: "fixed_end"
+      dof: [0, 1, 2]        # DOFs to constrain (0=x, 1=y, 2=z)
+      value: 0.0            # Displacement value
+
+    - nodeset: "symmetry_plane"
+      dof: [0]              # Constrain only X direction
+      value: 0.0
+
+  # Applied forces
+  force:
+    - nodeset: "loaded_end"
+      dof: 2                # Z-direction
+      value: -1000.0        # Force in Newtons
+
+    # Distributed load (applied to all nodes in set)
+    - nodeset: "pressure_surface"
+      dof: [0, 1, 2]
+      value: [0.0, 0.0, -100.0]  # Force vector per node
+
+  # Gravity load (applied to all elements)
+  gravity:
+    enabled: true
+    acceleration: [0.0, 0.0, -9.81]  # m/s² (Earth gravity in -Z)
+
+# -----------------------------------------------------------------------------
+# INITIAL CONDITIONS (Optional)
+# -----------------------------------------------------------------------------
+initial_conditions:
+  # Initial velocity for dynamic analysis
+  velocity:
+    - nodeset: "impactor"
+      value: [0.0, 0.0, -5.0]  # 5 m/s in -Z direction
+
+  # Initial displacement (prestress, etc.)
+  displacement:
+    - nodeset: "predeformed"
+      value: [0.0, 0.0, 0.001]  # 1 mm in Z
+
+# -----------------------------------------------------------------------------
+# OUTPUT CONFIGURATION
+# -----------------------------------------------------------------------------
+output:
+  # Visualization output (VTK, Exodus, HDF5)
+  format: "vtk"             # vtk, exodus, hdf5
+  directory: "."            # Output directory
+  base_name: "comprehensive_demo"
+
+  # Output frequency
+  frequency: 1              # Every N steps (1 = every step)
+  # OR time-based:
+  # time_interval: 0.001    # Output every 1 ms
+
+  # Fields to output
+  fields:
+    nodal:
+      - "displacement"
+      - "velocity"
+      - "acceleration"
+    element:
+      - "stress"
+      - "strain"
+      - "energy_density"
+
+# -----------------------------------------------------------------------------
+# ADVANCED SETTINGS (Optional)
+# -----------------------------------------------------------------------------
+advanced:
+  # GPU acceleration
+  gpu:
+    enabled: true
+    device: 0               # GPU device ID
+
+  # MPI parallelization
+  mpi:
+    enabled: false
+    partitioning: "metis"   # metis, parmetis, manual
+
+  # Element-specific settings
+  elements:
+    hex8:
+      integration: "reduced"  # reduced (1-point) or full (8-point)
+      hourglass_control: false
+
+    shell4:
+      formulation: "belytschko_tsay"  # or "reissner_mindlin"
+      num_integration_points: 5
+
+  # Contact mechanics (future feature)
+  # contact:
+  #   - type: "automatic_surface_to_surface"
+  #     master: "surface_1"
+  #     slave: "surface_2"
+  #     penalty: 1.0e10
+  #     friction: 0.3
+
+  # Termination criteria
+  termination:
+    max_time: 0.01
+    max_steps: 100000
+    energy_ratio: 10.0      # Terminate if kinetic/internal > this
+
+# -----------------------------------------------------------------------------
+# NOTES & COMMENTS
+# -----------------------------------------------------------------------------
+#
+# Supported Element Types:
+#   - HEX8:   8-node hexahedron (brick)
+#   - HEX20:  20-node hexahedron (quadratic)
+#   - TET4:   4-node tetrahedron
+#   - TET10:  10-node tetrahedron (quadratic)
+#   - SHELL4: 4-node shell (quad)
+#   - BEAM2:  2-node beam (Euler-Bernoulli)
+#   - WEDGE6: 6-node wedge/prism
+#
+# Units:
+#   - Length: meters (m)
+#   - Mass: kilograms (kg)
+#   - Time: seconds (s)
+#   - Force: Newtons (N)
+#   - Stress: Pascals (Pa)
+#   - Derived units follow SI convention
+#
+# Array Syntax:
+#   Single value:  dof: 0
+#   Multiple:      dof: [0, 1, 2]
+#   Vector:        value: [1.0, 2.0, 3.0]
+#
+# For more examples, see:
+#   - examples/configs/cantilever.yaml (simple beam)
+#   - examples/configs/crash_test.yaml (contact mechanics)
+#   - examples/configs/modal_analysis.yaml (eigenvalue analysis)
+#
+# =============================================================================
