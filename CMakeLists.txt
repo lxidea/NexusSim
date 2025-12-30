@@ -280,3 +280,17 @@ target_link_libraries(fem_static_test PRIVATE nexussim)
 # Wave 3 Phase 2: FEM Implicit Dynamic Solver
 add_executable(implicit_dynamic_test examples/implicit_dynamic_test.cpp)
 target_link_libraries(implicit_dynamic_test PRIVATE nexussim)
+
+# Wave 4: Peridynamics Integration
+add_executable(pd_bar_tension_test examples/pd_bar_tension_test.cpp)
+target_link_libraries(pd_bar_tension_test PRIVATE nexussim)
+
+add_executable(pd_validation_test examples/pd_validation_test.cpp)
+target_link_libraries(pd_validation_test PRIVATE nexussim)
+
+# Wave 5: Performance Optimization
+add_executable(comprehensive_benchmark examples/comprehensive_benchmark.cpp)
+target_link_libraries(comprehensive_benchmark PRIVATE nexussim)
+
+add_executable(kokkos_performance_test examples/kokkos_performance_test.cpp)
+target_link_libraries(kokkos_performance_test PRIVATE Kokkos::kokkos)

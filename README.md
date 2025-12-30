@@ -6,20 +6,72 @@
 
 Modern, GPU-accelerated computational mechanics solver for multi-physics simulations at exascale.
 
-## Features (Updated 2025-11-07)
+---
 
-**Currently Working**:
-- ✅ **Solid Mechanics FEM**: 7 element types (Hex8, Hex20, Tet4, Tet10, Shell4, Wedge6, Beam2)
-- ✅ **GPU Acceleration**: Kokkos parallel kernels implemented (80% complete)
-- ✅ **Explicit Dynamics**: Central difference time integration (GPU-parallelized)
+## Project Context
+
+> **For complete project context, ecosystem details, and session recovery info, see [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md)**
+
+### What This Project Is
+
+NexusSim is part of a larger **multi-physics simulation platform** initiative:
+
+```
+Parent Project: /mnt/d/_working_/FEM-PD/
+├── OpenRadioss/       → Legacy Fortran FEM (reference implementation)
+├── PeriSys-Haoran/    → CUDA Peridynamics solver (fracture/fragmentation)
+├── claude-radioss/    → THIS PROJECT - NexusSim unified C++20/Kokkos framework
+└── docs/              → Cross-project specifications
+```
+
+### Vision
+
+1. **Migrate from OpenRadioss** - Port critical FEM functionality to modern C++20/Kokkos with GPU acceleration
+2. **Integrate Peridynamics** - Couple with PeriSys for crack propagation and fragmentation
+3. **Unified Multi-Physics** - FEM + SPH + Peridynamics + DEM in one framework
+4. **Exascale Performance** - 80% efficiency at 10K cores, 5x+ GPU speedup
+
+### Current Status (2025-12-28)
+
+```
+Wave 0: Foundation           [████████████████████] 100% ✅
+Wave 1: Preprocessing/Mesh   [███████████████░░░░░]  75% ✅
+Wave 2: Explicit Solver      [████████████████████] 100% ✅ COMPLETE!
+Wave 3: Implicit Solver      [░░░░░░░░░░░░░░░░░░░░]   0% ← NEXT PHASE
+Wave 4: Multi-Physics        [████░░░░░░░░░░░░░░░░]  20% (SPH+FSI done)
+```
+
+---
+
+## Features (Updated 2025-12-28)
+
+**Core FEM (Wave 2 Complete)**:
+- ✅ **10 Element Types**: Hex8, Hex20, Tet4, Tet10, Shell3, Shell4, Wedge6, Beam2, Truss, Spring/Damper
+- ✅ **GPU Acceleration**: Kokkos parallel kernels (11M DOFs/sec measured)
+- ✅ **Explicit Dynamics**: Central difference, adaptive timestep, subcycling
+- ✅ **Materials**: Elastic, Von Mises, Johnson-Cook, Neo-Hookean hyperelastic
+- ✅ **Contact**: Penalty contact, Coulomb friction, self-contact
+- ✅ **Element Erosion**: Multiple failure criteria, mass redistribution
+
+**Multi-Physics (Phase 3A-C Complete)**:
+- ✅ **SPH Solver**: Weakly compressible, multiple kernels (Cubic, Wendland, Quintic)
+- ✅ **FEM-SPH Coupling**: Penalty + pressure coupling for FSI
+- ✅ **Thermal Coupling**: Conduction, thermo-mechanical effects
+- ✅ **Energy Monitoring**: Conservation tracking
+
+**Infrastructure**:
 - ✅ **Modern C++20**: Clean architecture with Kokkos for GPU portability
 - ✅ **VTK Output**: Full visualization support
+- ✅ **YAML Config**: Flexible input specification
 
-**Planned Features**:
-- ⚠️ **Multi-Physics**: Solid mechanics working, fluid/thermal/EM planned
-- ⚠️ **FEM-Meshfree Coupling**: Architecture ready, implementation pending
-- ⚠️ **Scalable**: Single-GPU ready, MPI + multi-GPU planned
-- ⚠️ **Python API**: Planned for Phase 3
+**Next Phase (Wave 3)**:
+- ⏳ **Implicit Solver**: Newton-Raphson, tangent stiffness, static analysis
+- ⏳ **Linear Solvers**: Direct, CG with preconditioners, PETSc integration
+
+**Future (Wave 4)**:
+- 📋 **Peridynamics**: Integration with PeriSys-Haoran for fracture
+- 📋 **PD-FEM Coupling**: Bridging domain methods
+- 📋 **MPI Scaling**: Multi-node parallelization
 
 ## Quick Start
 
@@ -158,37 +210,59 @@ NexusSim/
 - [Migration Roadmap](docs/Legacy_Migration_Roadmap.md)
 - [API Reference](https://nexussim.readthedocs.io) (Coming soon)
 
-## Roadmap (Updated 2025-11-07)
+## Roadmap (Updated 2025-12-28)
 
-**Phase 1 (Months 1-6)** - Foundation ✅ **85% COMPLETE**
-- [x] Core infrastructure
-- [x] 7 FEM element types (6 production-ready, 1 needs mesh fix)
-- [x] Explicit time integration (GPU-parallelized)
-- [ ] MPI parallelization
+### Completed Waves
 
-**Phase 2 (Months 7-12)** - GPU Acceleration ⚠️ **80% COMPLETE**
-- [x] Kokkos integration
-- [x] GPU element kernels (all 7 elements have parallel loops)
-- [x] Time integration parallelized
-- [ ] GPU backend verification (CUDA vs OpenMP)
-- [ ] Multi-GPU support
+**Wave 0: Foundation** ✅ **100% COMPLETE**
+- [x] C++20/Kokkos project skeleton
+- [x] Data containers (Mesh, State, Field)
+- [x] Build system (CMake), logging (spdlog)
+- [x] YAML configuration, VTK output
 
-**Phase 3 (Months 13-18)** - Advanced Features
-- [ ] Implicit solver
-- [ ] 100+ material models
-- [ ] Meshfree methods (SPH, RKPM, PD)
-- [ ] FEM-Meshfree coupling
+**Wave 1: Preprocessing & Mesh** ✅ **75% COMPLETE**
+- [x] Mesh ingestion (custom format)
+- [x] Programmatic mesh creation
+- [ ] Radioss/LS-DYNA format readers
+- [ ] METIS mesh partitioning
 
-**Phase 4 (Months 19-24)** - Multi-Physics
-- [ ] FSI coupling
-- [ ] Thermal-mechanical
-- [ ] Electromagnetic
+**Wave 2: Explicit Solver** ✅ **100% COMPLETE**
+- [x] 10 element types (all production-ready)
+- [x] GPU kernels (Kokkos parallel loops)
+- [x] Materials: Elastic, Von Mises, Johnson-Cook, Neo-Hookean
+- [x] Contact: Penalty, friction, self-contact
+- [x] Element erosion with failure criteria
+- [x] Adaptive timestep, subcycling
 
-**Phase 5 (Months 25-30)** - Production
-- [ ] Comprehensive testing
-- [ ] Documentation
-- [ ] Validation benchmarks
-- [ ] Open-source release
+**Phase 3A-C: Advanced Physics** ✅ **100% COMPLETE**
+- [x] Thermal coupling (conduction, thermo-mechanical)
+- [x] SPH solver (weakly compressible, multiple kernels)
+- [x] FEM-SPH coupling (FSI capability)
+- [x] Energy monitoring, consistent mass matrix
+
+### Current Phase
+
+**Wave 3: Implicit Solver** ⏳ **0% - NEXT**
+- [ ] Tangent stiffness matrix assembly
+- [ ] Newton-Raphson nonlinear solver
+- [ ] Linear solvers (Direct, CG, preconditioners)
+- [ ] Newmark-β time integration
+- [ ] Static analysis capability
+- [ ] (Optional) PETSc integration
+
+### Future Phases
+
+**Wave 4: Peridynamics & Multi-Physics** 📋
+- [ ] Bond-based PD (from PeriSys-Haoran)
+- [ ] State-based PD
+- [ ] PD-FEM coupling (bridging domain)
+- [ ] Crack propagation modeling
+
+**Wave 5: Optimization & Production** 📋
+- [ ] GPU kernel optimization
+- [ ] MPI multi-node scaling
+- [ ] Production format readers
+- [ ] Comprehensive validation suite
 
 ## Performance Targets
 

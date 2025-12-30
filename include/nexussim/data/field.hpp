@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nexussim/core/core.hpp>
+#include <numeric>
 #include <span>
 #include <string>
 #include <vector>

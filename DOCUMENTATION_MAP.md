@@ -1,7 +1,7 @@
 # NexusSim Documentation Map
 
 **Purpose**: Quick reference guide to all project documentation
-**Last Updated**: 2025-11-08
+**Last Updated**: 2025-12-28
 
 ---
 
@@ -16,13 +16,20 @@
    - Quick start examples
    - Roadmap summary
 
-2. **`TODO.md`** - Current development priorities
+2. **`docs/PROJECT_CONTEXT.md`** - **START HERE after crash/disconnect**
+   - Complete project ecosystem (OpenRadioss, PeriSys-Haoran)
+   - Project vision and goals
+   - Current implementation status
+   - Session recovery checklist
+   - Reference to parent folder structure
+
+3. **`TODO.md`** - Current development priorities
    - Critical tasks (this week)
    - Important tasks (2-4 weeks)
    - Medium priority (1-3 months)
    - Quick reference checklist
 
-3. **`DEVELOPMENT_REFERENCE.md`** - Long-term feature planning
+4. **`DEVELOPMENT_REFERENCE.md`** - Long-term feature planning
    - Feature categories and roadmap
    - Element library expansion plans
    - Material model specifications
@@ -34,7 +41,13 @@
 
 ## 📚 docs/ Directory Structure
 
-### Planning & Architecture (27 documents total)
+### Planning & Architecture (28 documents total)
+
+#### Project Context (READ FIRST)
+- **`PROJECT_CONTEXT.md`** - **Complete project ecosystem reference**
+  - OpenRadioss and PeriSys-Haoran integration
+  - Project vision, goals, and current status
+  - Session recovery checklist
 
 #### Core Architecture
 - **`Unified_Architecture_Blueprint.md`** - Overall system design
@@ -43,8 +56,8 @@
 
 #### Development Status
 - **`TODO.md`** - Detailed task list with implementation notes
-- **`PROGRESS_VS_GOALS_ANALYSIS.md`** - Comprehensive progress analysis (Nov 8)
-- **`WHATS_LEFT.md`** - Remaining work breakdown
+- **`PROGRESS_VS_GOALS_ANALYSIS.md`** - Comprehensive progress analysis
+- **`WHATS_LEFT.md`** - Remaining work breakdown (Wave 3 + Wave 4)
 - **`Development_Roadmap_Status.md`** - Phase-by-phase status
 - **`GETTING_STARTED_NEXT_PHASE.md`** - Contributor quick start
 
@@ -225,13 +238,14 @@ TODO.md   Code    TODO complete   PR     HISTORICAL
 
 ## 🎯 Quick Reference
 
-### Most Important 5 Documents
+### Most Important 6 Documents
 
-1. **`README.md`** - Start here
-2. **`TODO.md`** - What to do now
-3. **`docs/PROGRESS_VS_GOALS_ANALYSIS.md`** - Where we are
-4. **`DEVELOPMENT_REFERENCE.md`** - Where we're going
-5. **`docs/KNOWN_ISSUES.md`** - What's broken
+1. **`docs/PROJECT_CONTEXT.md`** - **Start here after crash/disconnect**
+2. **`README.md`** - Project overview
+3. **`TODO.md`** - What to do now
+4. **`docs/WHATS_LEFT.md`** - Detailed remaining work
+5. **`DEVELOPMENT_REFERENCE.md`** - Where we're going
+6. **`docs/KNOWN_ISSUES.md`** - What's broken
 
 ### Critical Bug Fix Path
 
@@ -274,4 +288,5 @@ TODO.md   Code    TODO complete   PR     HISTORICAL
 ---
 
 *Created: 2025-11-08*
+*Updated: 2025-12-28*
 *Purpose: Navigation guide for all project documentation*
