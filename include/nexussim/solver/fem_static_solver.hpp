@@ -18,6 +18,7 @@
 #include <nexussim/data/mesh.hpp>
 #include <nexussim/solver/implicit_solver.hpp>
 #include <nexussim/discretization/hex8.hpp>
+#include <nexussim/discretization/hex20.hpp>
 #include <vector>
 #include <set>
 #include <unordered_map>
@@ -304,8 +305,9 @@ private:
     void assemble_stiffness() {
         K_global_.zero();
 
-        // Create element object (currently only Hex8)
+        // Create element objects
         fem::Hex8Element hex8;
+        fem::Hex20Element hex20;
 
         // Process each element block
         for (const auto& block : mesh_->element_blocks()) {
@@ -335,9 +337,11 @@ private:
                     dof_map[i * 3 + 2] = elem_nodes[i] * 3 + 2;
                 }
 
-                // Compute element stiffness
+                // Compute element stiffness based on element type
                 if (nodes_per_elem == 8) {
                     hex8.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                } else if (nodes_per_elem == 20) {
+                    hex20.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
                 } else {
                     // For other element types, compute manually using B-matrix
                     compute_element_stiffness_generic(block, e, elem_coords, ke);
@@ -1030,6 +1034,7 @@ private:
         // Same as FEMStaticSolver
         K_global_.zero();
         fem::Hex8Element hex8;
+        fem::Hex20Element hex20;
 
         for (const auto& block : mesh_->element_blocks()) {
             size_t nodes_per_elem = block.num_nodes_per_elem;
@@ -1055,8 +1060,11 @@ private:
                     dof_map[i * 3 + 2] = elem_nodes[i] * 3 + 2;
                 }
 
+                // Compute element stiffness based on element type
                 if (nodes_per_elem == 8) {
                     hex8.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                } else if (nodes_per_elem == 20) {
+                    hex20.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
                 }
 
                 K_global_.add_element_matrix(dof_map, ke);
