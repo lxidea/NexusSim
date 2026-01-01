@@ -254,9 +254,9 @@ public:
     PDNeighborList& neighbors() { return neighbors_; }
     const PDSolverConfig& config() const { return config_; }
 
-private:
     /**
      * @brief Apply viscous damping
+     * @note Made public due to CUDA extended lambda restrictions
      */
     void apply_damping(Real c) {
         auto f = particles_->f();
@@ -276,6 +276,7 @@ private:
             });
     }
 
+private:
     PDSolverConfig config_;
     Real time_ = 0.0;
     Index step_ = 0;

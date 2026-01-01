@@ -78,6 +78,14 @@ if(NEXUSSIM_ENABLE_GPU)
     set(Kokkos_DIR "/usr/local/lib/cmake/Kokkos" CACHE PATH "Kokkos CMake directory")
     list(APPEND CMAKE_PREFIX_PATH /usr/local)
 
+    # Find CUDAToolkit BEFORE Kokkos to define CUDA::cuda_driver and CUDA::cudart targets
+    set(CUDAToolkit_ROOT "/usr/local/cuda-12.6" CACHE PATH "CUDA Toolkit directory")
+    find_package(CUDAToolkit QUIET)
+    if(CUDAToolkit_FOUND)
+        message(STATUS "CUDAToolkit found: ${CUDAToolkit_VERSION}")
+        message(STATUS "  CUDA_TOOLKIT_ROOT_DIR: ${CUDAToolkit_ROOT}")
+    endif()
+
     find_package(Kokkos REQUIRED)
     add_compile_definitions(NEXUSSIM_HAVE_KOKKOS)
 

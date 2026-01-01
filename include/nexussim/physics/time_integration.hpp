@@ -21,6 +21,7 @@
 #include <Kokkos_Core.hpp>
 #include <vector>
 #include <map>
+#include <set>
 #include <functional>
 #include <iostream>
 
