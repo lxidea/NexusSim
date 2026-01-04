@@ -147,7 +147,7 @@ public:
         Index np = particles.num_particles();
         auto x = particles.x_host();
         auto horizon = particles.horizon_host();
-        auto body_id = particles.body_id();
+        auto body_id = particles.body_id_host();  // Use host view
         auto active = particles.active_host();
 
         // For each particle, check neighboring cells

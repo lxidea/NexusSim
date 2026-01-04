@@ -70,9 +70,9 @@ public:
 
         auto x0_host = particles.x0_host();
         auto horizon_host = particles.horizon_host();
-        auto body_id = particles.body_id();
-        auto material_id = particles.material_id();
-        auto active = particles.active();
+        auto body_id_host = particles.body_id_host();
+        auto material_id_host = particles.material_id_host();
+        auto active_host = particles.active_host();
 
         // First pass: count neighbors
         std::vector<Index> neighbor_count(num_particles, 0);
@@ -87,19 +87,19 @@ public:
 
         // Build neighbor list (O(N²) for now, TODO: spatial hashing)
         for (Index i = 0; i < num_particles - 1; ++i) {
-            if (!active(i)) continue;
+            if (!active_host(i)) continue;
 
             Real xi[3] = {x0_host(i, 0), x0_host(i, 1), x0_host(i, 2)};
             Real delta_i = horizon_host(i);
 
             for (Index j = i + 1; j < num_particles; ++j) {
-                if (!active(j)) continue;
+                if (!active_host(j)) continue;
 
                 // Skip if different bodies (from PeriSys)
-                if (body_id(i) != body_id(j)) continue;
+                if (body_id_host(i) != body_id_host(j)) continue;
 
                 // Skip if different material types
-                if (material_id(i) != material_id(j)) continue;
+                if (material_id_host(i) != material_id_host(j)) continue;
 
                 Real xj[3] = {x0_host(j, 0), x0_host(j, 1), x0_host(j, 2)};
                 Real delta_j = horizon_host(j);
@@ -202,7 +202,7 @@ public:
         Real avg_neighbors = 0.0;
         Index active_count = 0;
         for (Index i = 0; i < num_particles; ++i) {
-            if (active(i) && neighbor_count[i] > 0) {
+            if (active_host(i) && neighbor_count[i] > 0) {
                 max_neighbors = std::max(max_neighbors, neighbor_count[i]);
                 avg_neighbors += neighbor_count[i];
                 active_count++;
@@ -220,9 +220,10 @@ public:
      * @brief Mark a bond as broken
      */
     void break_bond(Index bond_idx) {
+        auto bond_intact = bond_intact_;  // Copy view to avoid capturing 'this'
         Kokkos::parallel_for("break_bond", 1,
             KOKKOS_LAMBDA(const Index) {
-                bond_intact_(bond_idx) = false;
+                bond_intact(bond_idx) = false;
             });
     }
 

@@ -65,15 +65,30 @@ public:
         mass_host_ = Kokkos::create_mirror_view(mass_);
         damage_host_ = Kokkos::create_mirror_view(damage_);
         active_host_ = Kokkos::create_mirror_view(active_);
+        material_id_host_ = Kokkos::create_mirror_view(material_id_);
+        body_id_host_ = Kokkos::create_mirror_view(body_id_);
+        bc_type_host_ = Kokkos::create_mirror_view(bc_type_);
 
-        // Initialize all particles as active
+        // Initialize all particles as active on both host and device
+        // Device initialization
+        auto active = active_;
+        auto damage = damage_;
+        auto temperature = temperature_;
+        auto theta = theta_;
         Kokkos::parallel_for("init_active", num_particles,
             KOKKOS_LAMBDA(const Index i) {
-                active_(i) = true;
-                damage_(i) = 0.0;
-                temperature_(i) = 300.0;
-                theta_(i) = 0.0;
+                active(i) = true;
+                damage(i) = 0.0;
+                temperature(i) = 300.0;
+                theta(i) = 0.0;
             });
+        Kokkos::fence();  // Ensure initialization completes before continuing
+
+        // Also initialize host mirrors (so sync_to_device doesn't overwrite)
+        for (Index i = 0; i < num_particles; ++i) {
+            active_host_(i) = true;
+            damage_host_(i) = 0.0;
+        }
     }
 
     /**
@@ -110,8 +125,8 @@ public:
      * @brief Set material and body ID (host)
      */
     void set_ids(Index i, Index mat_id, Index bod_id) {
-        material_id_(i) = mat_id;
-        body_id_(i) = bod_id;
+        material_id_host_(i) = mat_id;
+        body_id_host_(i) = bod_id;
     }
 
     /**
@@ -129,6 +144,9 @@ public:
         Kokkos::deep_copy(mass_, mass_host_);
         Kokkos::deep_copy(damage_, damage_host_);
         Kokkos::deep_copy(active_, active_host_);
+        Kokkos::deep_copy(material_id_, material_id_host_);
+        Kokkos::deep_copy(body_id_, body_id_host_);
+        Kokkos::deep_copy(bc_type_, bc_type_host_);
     }
 
     /**
@@ -136,12 +154,19 @@ public:
      */
     void sync_to_host() {
         Kokkos::deep_copy(x_host_, x_);
+        Kokkos::deep_copy(x0_host_, x0_);
         Kokkos::deep_copy(u_host_, u_);
         Kokkos::deep_copy(v_host_, v_);
         Kokkos::deep_copy(a_host_, a_);
         Kokkos::deep_copy(f_host_, f_);
+        Kokkos::deep_copy(volume_host_, volume_);
+        Kokkos::deep_copy(horizon_host_, horizon_);
+        Kokkos::deep_copy(mass_host_, mass_);
         Kokkos::deep_copy(damage_host_, damage_);
         Kokkos::deep_copy(active_host_, active_);
+        Kokkos::deep_copy(material_id_host_, material_id_);
+        Kokkos::deep_copy(body_id_host_, body_id_);
+        Kokkos::deep_copy(bc_type_host_, bc_type_);
     }
 
     /**
@@ -264,9 +289,10 @@ public:
      * @brief Apply velocity boundary condition
      */
     void apply_velocity_bc(Index node, int dof, Real value) {
+        auto v = v_;  // Copy view to avoid capturing 'this'
         Kokkos::parallel_for("apply_vel_bc", 1,
             KOKKOS_LAMBDA(const Index) {
-                v_(node, dof) = value;
+                v(node, dof) = value;
             });
     }
 
@@ -343,6 +369,9 @@ public:
     PDScalarHostView& mass_host() { return mass_host_; }
     PDScalarHostView& damage_host() { return damage_host_; }
     PDBoolHostView& active_host() { return active_host_; }
+    PDIndexHostView& material_id_host() { return material_id_host_; }
+    PDIndexHostView& body_id_host() { return body_id_host_; }
+    PDIndexHostView& bc_type_host() { return bc_type_host_; }
 
 private:
     Index num_particles_ = 0;
@@ -380,6 +409,9 @@ private:
     PDScalarHostView mass_host_;
     PDScalarHostView damage_host_;
     PDBoolHostView active_host_;
+    PDIndexHostView material_id_host_;
+    PDIndexHostView body_id_host_;
+    PDIndexHostView bc_type_host_;
 };
 
 } // namespace pd
