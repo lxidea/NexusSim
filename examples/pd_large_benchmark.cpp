@@ -22,8 +22,8 @@ int main(int argc, char* argv[]) {
     std::cout << "NexusSim Large-Scale Peridynamics Benchmark\n";
     std::cout << "============================================================\n\n";
     
-    // Problem sizes to test
-    std::vector<int> sizes = {10, 15, 20, 25};  // 3D grids: n x n x n
+    // Problem sizes to test - up to ~100k particles
+    std::vector<int> sizes = {30, 37, 46, 50};  // 30^3=27k, 37^3=50k, 46^3=97k, 50^3=125k
     
     for (int n : sizes) {
         Index num_particles = n * n * n;

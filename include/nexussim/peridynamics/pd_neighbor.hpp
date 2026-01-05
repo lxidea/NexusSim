@@ -2,10 +2,10 @@
 
 /**
  * @file pd_neighbor.hpp
- * @brief Peridynamics neighbor list with Kokkos support
+ * @brief Peridynamics neighbor list with Kokkos GPU support
  *
- * Ported from PeriSys-Haoran JBuildNeighborList.cu
- * Uses CSR format for efficient GPU access
+ * Uses spatial hashing for O(N) neighbor search on GPU.
+ * CSR format for efficient GPU access.
  */
 
 #include <nexussim/peridynamics/pd_types.hpp>
@@ -28,9 +28,6 @@ enum class InfluenceFunction {
 
 /**
  * @brief Compute influence function weight
- * @param distance Bond length |xi|
- * @param horizon Horizon delta
- * @param horizon_factor Factor for influence function
  */
 KOKKOS_INLINE_FUNCTION
 Real influence_weight(Real distance, Real horizon, Real horizon_factor = 3.015) {
@@ -38,26 +35,29 @@ Real influence_weight(Real distance, Real horizon, Real horizon_factor = 3.015) 
     if (r > 1.0) return 0.0;
 
     // Conical influence function (from PeriSys)
-    // w = (1 - r)^2 * exp(-r * horizon_factor)
     Real one_minus_r = 1.0 - r;
-    return one_minus_r * one_minus_r * std::exp(-r * horizon_factor);
+    return one_minus_r * one_minus_r * Kokkos::exp(-r * horizon_factor);
 }
 
 /**
  * @brief Neighbor list for peridynamics (CSR format)
  *
- * Stores neighbor relationships in compressed sparse row format
- * for efficient GPU access.
+ * Uses GPU-accelerated spatial hashing for O(N) neighbor search.
  */
 class PDNeighborList {
 public:
     PDNeighborList() = default;
 
     /**
-     * @brief Build neighbor list from particle positions
+     * @brief Build neighbor list using GPU spatial hashing
      *
-     * For each particle, finds all neighbors within the horizon.
-     * Uses O(N²) algorithm suitable for moderate particle counts.
+     * Algorithm:
+     * 1. Compute bounding box and cell grid
+     * 2. Assign particles to cells (GPU parallel)
+     * 3. Build cell lists with atomic operations
+     * 4. Count neighbors per particle (GPU parallel, check 27 cells)
+     * 5. Prefix sum for CSR offsets
+     * 6. Fill neighbor list (GPU parallel)
      *
      * @param particles Particle system
      * @param horizon_factor Factor for influence function (default 3.015)
@@ -65,162 +65,430 @@ public:
     void build(PDParticleSystem& particles, Real horizon_factor = 3.015) {
         Index num_particles = particles.num_particles();
 
-        // Sync to host for building
-        particles.sync_to_host();
+        // Get particle data on device
+        auto x0 = particles.x0();
+        auto horizon = particles.horizon();
+        auto body_id = particles.body_id();
+        auto material_id = particles.material_id();
+        auto active = particles.active();
 
-        auto x0_host = particles.x0_host();
-        auto horizon_host = particles.horizon_host();
-        auto body_id_host = particles.body_id_host();
-        auto material_id_host = particles.material_id_host();
-        auto active_host = particles.active_host();
+        // Step 1: Find bounding box and max horizon (reduction on GPU)
+        Real min_x, min_y, min_z, max_x, max_y, max_z, max_horizon;
 
-        // First pass: count neighbors
-        std::vector<Index> neighbor_count(num_particles, 0);
-        std::vector<std::vector<Index>> neighbor_lists(num_particles);
-        std::vector<std::vector<Real>> weight_lists(num_particles);
-
-        // Reserve space (typical PD has ~100-250 neighbors)
-        for (Index i = 0; i < num_particles; ++i) {
-            neighbor_lists[i].reserve(250);
-            weight_lists[i].reserve(250);
-        }
-
-        // Build neighbor list (O(N²) for now, TODO: spatial hashing)
-        for (Index i = 0; i < num_particles - 1; ++i) {
-            if (!active_host(i)) continue;
-
-            Real xi[3] = {x0_host(i, 0), x0_host(i, 1), x0_host(i, 2)};
-            Real delta_i = horizon_host(i);
-
-            for (Index j = i + 1; j < num_particles; ++j) {
-                if (!active_host(j)) continue;
-
-                // Skip if different bodies (from PeriSys)
-                if (body_id_host(i) != body_id_host(j)) continue;
-
-                // Skip if different material types
-                if (material_id_host(i) != material_id_host(j)) continue;
-
-                Real xj[3] = {x0_host(j, 0), x0_host(j, 1), x0_host(j, 2)};
-                Real delta_j = horizon_host(j);
-
-                // Average horizon
-                Real delta_ij = 0.5 * (delta_i + delta_j);
-
-                // Distance
-                Real dx = xj[0] - xi[0];
-                Real dy = xj[1] - xi[1];
-                Real dz = xj[2] - xi[2];
-                Real distance = std::sqrt(dx * dx + dy * dy + dz * dz);
-
-                // Check if within horizon
-                Real r = distance / delta_ij;
-                if (r <= 1.0) {
-                    Real w = influence_weight(distance, delta_ij, horizon_factor);
-
-                    // Add symmetric bond (i -> j and j -> i)
-                    neighbor_lists[i].push_back(j);
-                    neighbor_lists[j].push_back(i);
-                    weight_lists[i].push_back(w);
-                    weight_lists[j].push_back(w);
-                    neighbor_count[i]++;
-                    neighbor_count[j]++;
+        Kokkos::parallel_reduce("find_bounds", num_particles,
+            KOKKOS_LAMBDA(const Index i, Real& lmin_x, Real& lmin_y, Real& lmin_z,
+                          Real& lmax_x, Real& lmax_y, Real& lmax_z, Real& lmax_h) {
+                if (active(i)) {
+                    lmin_x = Kokkos::fmin(lmin_x, x0(i, 0));
+                    lmin_y = Kokkos::fmin(lmin_y, x0(i, 1));
+                    lmin_z = Kokkos::fmin(lmin_z, x0(i, 2));
+                    lmax_x = Kokkos::fmax(lmax_x, x0(i, 0));
+                    lmax_y = Kokkos::fmax(lmax_y, x0(i, 1));
+                    lmax_z = Kokkos::fmax(lmax_z, x0(i, 2));
+                    lmax_h = Kokkos::fmax(lmax_h, horizon(i));
                 }
-            }
-        }
+            },
+            Kokkos::Min<Real>(min_x), Kokkos::Min<Real>(min_y), Kokkos::Min<Real>(min_z),
+            Kokkos::Max<Real>(max_x), Kokkos::Max<Real>(max_y), Kokkos::Max<Real>(max_z),
+            Kokkos::Max<Real>(max_horizon));
 
-        // Compute total neighbors and offsets
-        total_bonds_ = 0;
-        std::vector<Index> offsets(num_particles);
-        for (Index i = 0; i < num_particles; ++i) {
-            offsets[i] = total_bonds_;
-            total_bonds_ += neighbor_count[i];
-        }
+        // Cell size = max horizon (ensures all neighbors are in adjacent cells)
+        Real cell_size = max_horizon * 1.001;  // Small margin for floating point
 
-        // Allocate device views
-        neighbor_offset_ = PDNeighborOffsetView("neighbor_offset", num_particles + 1);
-        neighbor_list_ = PDNeighborListView("neighbor_list", total_bonds_);
+        // Grid dimensions
+        Index nx = static_cast<Index>((max_x - min_x) / cell_size) + 3;
+        Index ny = static_cast<Index>((max_y - min_y) / cell_size) + 3;
+        Index nz = static_cast<Index>((max_z - min_z) / cell_size) + 3;
+        Index num_cells = nx * ny * nz;
+
+        // Adjust grid origin to include margin
+        Real grid_min_x = min_x - cell_size;
+        Real grid_min_y = min_y - cell_size;
+        Real grid_min_z = min_z - cell_size;
+
+        // Step 2: Count particles per cell
+        Kokkos::View<Index*> cell_count("cell_count", num_cells);
+        Kokkos::View<Index*> particle_cell("particle_cell", num_particles);
+
+        Kokkos::parallel_for("assign_cells", num_particles,
+            KOKKOS_LAMBDA(const Index i) {
+                if (!active(i)) {
+                    particle_cell(i) = num_cells;  // Invalid cell
+                    return;
+                }
+
+                Index cx = static_cast<Index>((x0(i, 0) - grid_min_x) / cell_size);
+                Index cy = static_cast<Index>((x0(i, 1) - grid_min_y) / cell_size);
+                Index cz = static_cast<Index>((x0(i, 2) - grid_min_z) / cell_size);
+
+                cx = Kokkos::max(Index(0), Kokkos::min(cx, nx - 1));
+                cy = Kokkos::max(Index(0), Kokkos::min(cy, ny - 1));
+                cz = Kokkos::max(Index(0), Kokkos::min(cz, nz - 1));
+
+                Index cell_idx = cx + cy * nx + cz * nx * ny;
+                particle_cell(i) = cell_idx;
+                Kokkos::atomic_increment(&cell_count(cell_idx));
+            });
+        Kokkos::fence();
+
+        // Step 3: Prefix sum for cell offsets
+        Kokkos::View<Index*> cell_offset("cell_offset", num_cells + 1);
+        Kokkos::parallel_scan("cell_prefix_sum", num_cells,
+            KOKKOS_LAMBDA(const Index i, Index& sum, const bool final) {
+                if (final) {
+                    cell_offset(i) = sum;
+                }
+                sum += cell_count(i);
+            });
+
+        // Set final offset
+        Index total_in_cells = 0;
+        Kokkos::parallel_reduce("sum_cells", num_cells,
+            KOKKOS_LAMBDA(const Index i, Index& sum) {
+                sum += cell_count(i);
+            }, total_in_cells);
+
+        auto cell_offset_host = Kokkos::create_mirror_view(cell_offset);
+        Kokkos::deep_copy(cell_offset_host, cell_offset);
+        cell_offset_host(num_cells) = total_in_cells;
+        Kokkos::deep_copy(cell_offset, cell_offset_host);
+
+        // Step 4: Fill cell lists (sorted particle indices)
+        Kokkos::View<Index*> cell_list("cell_list", num_particles);
+        Kokkos::View<Index*> cell_fill("cell_fill", num_cells);  // Current fill position
+
+        Kokkos::parallel_for("fill_cell_list", num_particles,
+            KOKKOS_LAMBDA(const Index i) {
+                if (!active(i)) return;
+
+                Index cell_idx = particle_cell(i);
+                if (cell_idx >= num_cells) return;
+
+                Index pos = cell_offset(cell_idx) + Kokkos::atomic_fetch_add(&cell_fill(cell_idx), 1);
+                cell_list(pos) = i;
+            });
+        Kokkos::fence();
+
+        // Step 5: Count neighbors per particle (checking 27 neighboring cells)
         neighbor_count_ = PDIndexView("neighbor_count", num_particles);
+        auto neighbor_count = neighbor_count_;
+
+        Kokkos::parallel_for("count_neighbors", num_particles,
+            KOKKOS_LAMBDA(const Index i) {
+                if (!active(i)) {
+                    neighbor_count(i) = 0;
+                    return;
+                }
+
+                Real xi[3] = {x0(i, 0), x0(i, 1), x0(i, 2)};
+                Real delta_i = horizon(i);
+                Index body_i = body_id(i);
+                Index mat_i = material_id(i);
+
+                Index cx = static_cast<Index>((xi[0] - grid_min_x) / cell_size);
+                Index cy = static_cast<Index>((xi[1] - grid_min_y) / cell_size);
+                Index cz = static_cast<Index>((xi[2] - grid_min_z) / cell_size);
+
+                Index count = 0;
+
+                // Check 27 neighboring cells
+                for (int dz = -1; dz <= 1; ++dz) {
+                    for (int dy = -1; dy <= 1; ++dy) {
+                        for (int dx = -1; dx <= 1; ++dx) {
+                            Index ncx = cx + dx;
+                            Index ncy = cy + dy;
+                            Index ncz = cz + dz;
+
+                            if (ncx < 0 || ncx >= nx || ncy < 0 || ncy >= ny || ncz < 0 || ncz >= nz)
+                                continue;
+
+                            Index neighbor_cell = ncx + ncy * nx + ncz * nx * ny;
+                            Index cell_start = cell_offset(neighbor_cell);
+                            Index cell_end = cell_offset(neighbor_cell + 1);
+
+                            for (Index k = cell_start; k < cell_end; ++k) {
+                                Index j = cell_list(k);
+                                if (j <= i) continue;  // Only count once (i < j)
+                                if (!active(j)) continue;
+                                if (body_id(j) != body_i) continue;
+                                if (material_id(j) != mat_i) continue;
+
+                                Real xj[3] = {x0(j, 0), x0(j, 1), x0(j, 2)};
+                                Real delta_j = horizon(j);
+                                Real delta_ij = 0.5 * (delta_i + delta_j);
+
+                                Real dx = xj[0] - xi[0];
+                                Real dy = xj[1] - xi[1];
+                                Real dz = xj[2] - xi[2];
+                                Real dist = Kokkos::sqrt(dx*dx + dy*dy + dz*dz);
+
+                                if (dist <= delta_ij) {
+                                    count++;
+                                }
+                            }
+                        }
+                    }
+                }
+                neighbor_count(i) = count;
+            });
+        Kokkos::fence();
+
+        // Also count reverse bonds (j -> i where j < i)
+        Kokkos::parallel_for("count_reverse_neighbors", num_particles,
+            KOKKOS_LAMBDA(const Index i) {
+                if (!active(i)) return;
+
+                Real xi[3] = {x0(i, 0), x0(i, 1), x0(i, 2)};
+                Real delta_i = horizon(i);
+                Index body_i = body_id(i);
+                Index mat_i = material_id(i);
+
+                Index cx = static_cast<Index>((xi[0] - grid_min_x) / cell_size);
+                Index cy = static_cast<Index>((xi[1] - grid_min_y) / cell_size);
+                Index cz = static_cast<Index>((xi[2] - grid_min_z) / cell_size);
+
+                for (int dz = -1; dz <= 1; ++dz) {
+                    for (int dy = -1; dy <= 1; ++dy) {
+                        for (int dx = -1; dx <= 1; ++dx) {
+                            Index ncx = cx + dx;
+                            Index ncy = cy + dy;
+                            Index ncz = cz + dz;
+
+                            if (ncx < 0 || ncx >= nx || ncy < 0 || ncy >= ny || ncz < 0 || ncz >= nz)
+                                continue;
+
+                            Index neighbor_cell = ncx + ncy * nx + ncz * nx * ny;
+                            Index cell_start = cell_offset(neighbor_cell);
+                            Index cell_end = cell_offset(neighbor_cell + 1);
+
+                            for (Index k = cell_start; k < cell_end; ++k) {
+                                Index j = cell_list(k);
+                                if (j >= i) continue;  // Only j < i for reverse
+                                if (!active(j)) continue;
+                                if (body_id(j) != body_i) continue;
+                                if (material_id(j) != mat_i) continue;
+
+                                Real xj[3] = {x0(j, 0), x0(j, 1), x0(j, 2)};
+                                Real delta_j = horizon(j);
+                                Real delta_ij = 0.5 * (delta_i + delta_j);
+
+                                Real ddx = xj[0] - xi[0];
+                                Real ddy = xj[1] - xi[1];
+                                Real ddz = xj[2] - xi[2];
+                                Real dist = Kokkos::sqrt(ddx*ddx + ddy*ddy + ddz*ddz);
+
+                                if (dist <= delta_ij) {
+                                    Kokkos::atomic_increment(&neighbor_count(i));
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        Kokkos::fence();
+
+        // Step 6: Prefix sum for neighbor offsets
+        neighbor_offset_ = PDNeighborOffsetView("neighbor_offset", num_particles + 1);
+        auto neighbor_offset = neighbor_offset_;
+
+        Kokkos::parallel_scan("neighbor_prefix_sum", num_particles,
+            KOKKOS_LAMBDA(const Index i, Index& sum, const bool final) {
+                if (final) {
+                    neighbor_offset(i) = sum;
+                }
+                sum += neighbor_count(i);
+            });
+
+        // Get total bonds
+        Kokkos::parallel_reduce("sum_bonds", num_particles,
+            KOKKOS_LAMBDA(const Index i, Index& sum) {
+                sum += neighbor_count(i);
+            }, total_bonds_);
+
+        // Set final offset
+        auto neighbor_offset_host = Kokkos::create_mirror_view(neighbor_offset);
+        Kokkos::deep_copy(neighbor_offset_host, neighbor_offset);
+        neighbor_offset_host(num_particles) = total_bonds_;
+        Kokkos::deep_copy(neighbor_offset, neighbor_offset_host);
+
+        // Step 7: Allocate neighbor data
+        neighbor_list_ = PDNeighborListView("neighbor_list", total_bonds_);
         bond_weight_ = PDBondWeightView("bond_weight", total_bonds_);
         bond_intact_ = PDBondIntactView("bond_intact", total_bonds_);
         bond_xi_ = Kokkos::View<Real*[3]>("bond_xi", total_bonds_);
         bond_length_ = PDScalarView("bond_length", total_bonds_);
 
-        // Create host mirrors
-        auto neighbor_offset_host = Kokkos::create_mirror_view(neighbor_offset_);
-        auto neighbor_list_host = Kokkos::create_mirror_view(neighbor_list_);
-        auto neighbor_count_host = Kokkos::create_mirror_view(neighbor_count_);
-        auto bond_weight_host = Kokkos::create_mirror_view(bond_weight_);
-        auto bond_intact_host = Kokkos::create_mirror_view(bond_intact_);
-        auto bond_xi_host = Kokkos::create_mirror_view(bond_xi_);
-        auto bond_length_host = Kokkos::create_mirror_view(bond_length_);
+        auto neighbor_list = neighbor_list_;
+        auto bond_weight = bond_weight_;
+        auto bond_intact = bond_intact_;
+        auto bond_xi = bond_xi_;
+        auto bond_length = bond_length_;
 
-        // Fill host arrays
-        for (Index i = 0; i < num_particles; ++i) {
-            neighbor_offset_host(i) = offsets[i];
-            neighbor_count_host(i) = neighbor_count[i];
+        // Step 8: Fill neighbor list (forward bonds: i < j)
+        Kokkos::View<Index*> fill_pos("fill_pos", num_particles);
 
-            for (Index k = 0; k < neighbor_count[i]; ++k) {
-                Index bond_idx = offsets[i] + k;
-                Index j = neighbor_lists[i][k];
+        Kokkos::parallel_for("fill_forward_neighbors", num_particles,
+            KOKKOS_LAMBDA(const Index i) {
+                if (!active(i)) return;
 
-                neighbor_list_host(bond_idx) = j;
-                bond_weight_host(bond_idx) = weight_lists[i][k];
-                bond_intact_host(bond_idx) = true;
+                Real xi[3] = {x0(i, 0), x0(i, 1), x0(i, 2)};
+                Real delta_i = horizon(i);
+                Index body_i = body_id(i);
+                Index mat_i = material_id(i);
 
-                // Reference bond vector xi = xj - xi
-                Real xi_vec[3] = {
-                    x0_host(j, 0) - x0_host(i, 0),
-                    x0_host(j, 1) - x0_host(i, 1),
-                    x0_host(j, 2) - x0_host(i, 2)
-                };
-                Real length = std::sqrt(
-                    xi_vec[0] * xi_vec[0] +
-                    xi_vec[1] * xi_vec[1] +
-                    xi_vec[2] * xi_vec[2]
-                );
+                Index cx = static_cast<Index>((xi[0] - grid_min_x) / cell_size);
+                Index cy = static_cast<Index>((xi[1] - grid_min_y) / cell_size);
+                Index cz = static_cast<Index>((xi[2] - grid_min_z) / cell_size);
 
-                bond_xi_host(bond_idx, 0) = xi_vec[0];
-                bond_xi_host(bond_idx, 1) = xi_vec[1];
-                bond_xi_host(bond_idx, 2) = xi_vec[2];
-                bond_length_host(bond_idx) = length;
-            }
-        }
-        neighbor_offset_host(num_particles) = total_bonds_;
+                Index offset = neighbor_offset(i);
+                Index local_count = 0;
 
-        // Copy to device
-        Kokkos::deep_copy(neighbor_offset_, neighbor_offset_host);
-        Kokkos::deep_copy(neighbor_list_, neighbor_list_host);
-        Kokkos::deep_copy(neighbor_count_, neighbor_count_host);
-        Kokkos::deep_copy(bond_weight_, bond_weight_host);
-        Kokkos::deep_copy(bond_intact_, bond_intact_host);
-        Kokkos::deep_copy(bond_xi_, bond_xi_host);
-        Kokkos::deep_copy(bond_length_, bond_length_host);
+                for (int ddz = -1; ddz <= 1; ++ddz) {
+                    for (int ddy = -1; ddy <= 1; ++ddy) {
+                        for (int ddx = -1; ddx <= 1; ++ddx) {
+                            Index ncx = cx + ddx;
+                            Index ncy = cy + ddy;
+                            Index ncz = cz + ddz;
+
+                            if (ncx < 0 || ncx >= nx || ncy < 0 || ncy >= ny || ncz < 0 || ncz >= nz)
+                                continue;
+
+                            Index neighbor_cell = ncx + ncy * nx + ncz * nx * ny;
+                            Index cell_start = cell_offset(neighbor_cell);
+                            Index cell_end = cell_offset(neighbor_cell + 1);
+
+                            for (Index k = cell_start; k < cell_end; ++k) {
+                                Index j = cell_list(k);
+                                if (j <= i) continue;
+                                if (!active(j)) continue;
+                                if (body_id(j) != body_i) continue;
+                                if (material_id(j) != mat_i) continue;
+
+                                Real xj[3] = {x0(j, 0), x0(j, 1), x0(j, 2)};
+                                Real delta_j = horizon(j);
+                                Real delta_ij = 0.5 * (delta_i + delta_j);
+
+                                Real dx = xj[0] - xi[0];
+                                Real dy = xj[1] - xi[1];
+                                Real dz = xj[2] - xi[2];
+                                Real dist = Kokkos::sqrt(dx*dx + dy*dy + dz*dz);
+
+                                if (dist <= delta_ij) {
+                                    Index bond_idx = offset + local_count;
+                                    neighbor_list(bond_idx) = j;
+                                    bond_weight(bond_idx) = influence_weight(dist, delta_ij, horizon_factor);
+                                    bond_intact(bond_idx) = true;
+                                    bond_xi(bond_idx, 0) = dx;
+                                    bond_xi(bond_idx, 1) = dy;
+                                    bond_xi(bond_idx, 2) = dz;
+                                    bond_length(bond_idx) = dist;
+                                    local_count++;
+                                }
+                            }
+                        }
+                    }
+                }
+                fill_pos(i) = local_count;
+            });
+        Kokkos::fence();
+
+        // Step 9: Fill reverse bonds (j < i)
+        Kokkos::parallel_for("fill_reverse_neighbors", num_particles,
+            KOKKOS_LAMBDA(const Index i) {
+                if (!active(i)) return;
+
+                Real xi[3] = {x0(i, 0), x0(i, 1), x0(i, 2)};
+                Real delta_i = horizon(i);
+                Index body_i = body_id(i);
+                Index mat_i = material_id(i);
+
+                Index cx = static_cast<Index>((xi[0] - grid_min_x) / cell_size);
+                Index cy = static_cast<Index>((xi[1] - grid_min_y) / cell_size);
+                Index cz = static_cast<Index>((xi[2] - grid_min_z) / cell_size);
+
+                Index offset = neighbor_offset(i) + fill_pos(i);
+                Index local_count = 0;
+
+                for (int ddz = -1; ddz <= 1; ++ddz) {
+                    for (int ddy = -1; ddy <= 1; ++ddy) {
+                        for (int ddx = -1; ddx <= 1; ++ddx) {
+                            Index ncx = cx + ddx;
+                            Index ncy = cy + ddy;
+                            Index ncz = cz + ddz;
+
+                            if (ncx < 0 || ncx >= nx || ncy < 0 || ncy >= ny || ncz < 0 || ncz >= nz)
+                                continue;
+
+                            Index neighbor_cell = ncx + ncy * nx + ncz * nx * ny;
+                            Index cell_start_idx = cell_offset(neighbor_cell);
+                            Index cell_end_idx = cell_offset(neighbor_cell + 1);
+
+                            for (Index k = cell_start_idx; k < cell_end_idx; ++k) {
+                                Index j = cell_list(k);
+                                if (j >= i) continue;
+                                if (!active(j)) continue;
+                                if (body_id(j) != body_i) continue;
+                                if (material_id(j) != mat_i) continue;
+
+                                Real xj[3] = {x0(j, 0), x0(j, 1), x0(j, 2)};
+                                Real delta_j = horizon(j);
+                                Real delta_ij = 0.5 * (delta_i + delta_j);
+
+                                Real dx = xj[0] - xi[0];
+                                Real dy = xj[1] - xi[1];
+                                Real dz = xj[2] - xi[2];
+                                Real dist = Kokkos::sqrt(dx*dx + dy*dy + dz*dz);
+
+                                if (dist <= delta_ij) {
+                                    Index bond_idx = offset + local_count;
+                                    neighbor_list(bond_idx) = j;
+                                    bond_weight(bond_idx) = influence_weight(dist, delta_ij, horizon_factor);
+                                    bond_intact(bond_idx) = true;
+                                    bond_xi(bond_idx, 0) = dx;
+                                    bond_xi(bond_idx, 1) = dy;
+                                    bond_xi(bond_idx, 2) = dz;
+                                    bond_length(bond_idx) = dist;
+                                    local_count++;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        Kokkos::fence();
 
         // Compute statistics
         Index max_neighbors = 0;
         Real avg_neighbors = 0.0;
+
+        Kokkos::parallel_reduce("neighbor_stats", num_particles,
+            KOKKOS_LAMBDA(const Index i, Index& lmax, Real& lsum) {
+                if (active(i)) {
+                    lmax = Kokkos::max(lmax, neighbor_count(i));
+                    lsum += neighbor_count(i);
+                }
+            },
+            Kokkos::Max<Index>(max_neighbors), avg_neighbors);
+
         Index active_count = 0;
-        for (Index i = 0; i < num_particles; ++i) {
-            if (active_host(i) && neighbor_count[i] > 0) {
-                max_neighbors = std::max(max_neighbors, neighbor_count[i]);
-                avg_neighbors += neighbor_count[i];
-                active_count++;
-            }
-        }
+        Kokkos::parallel_reduce("count_active", num_particles,
+            KOKKOS_LAMBDA(const Index i, Index& cnt) {
+                if (active(i)) cnt++;
+            }, active_count);
+
         if (active_count > 0) {
             avg_neighbors /= active_count;
         }
 
-        NXS_LOG_INFO("PDNeighborList: {} particles, {} bonds, avg neighbors: {:.1f}, max: {}",
-                     num_particles, total_bonds_, avg_neighbors, max_neighbors);
+        NXS_LOG_INFO("PDNeighborList (GPU): {} particles, {} bonds, avg: {:.1f}, max: {}, cells: {}x{}x{}",
+                     num_particles, total_bonds_, avg_neighbors, max_neighbors, nx, ny, nz);
     }
 
     /**
      * @brief Mark a bond as broken
      */
     void break_bond(Index bond_idx) {
-        auto bond_intact = bond_intact_;  // Copy view to avoid capturing 'this'
+        auto bond_intact = bond_intact_;
         Kokkos::parallel_for("break_bond", 1,
             KOKKOS_LAMBDA(const Index) {
                 bond_intact(bond_idx) = false;
