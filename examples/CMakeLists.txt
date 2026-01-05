@@ -87,6 +87,9 @@ target_link_libraries(gpu_performance_benchmark PRIVATE nexussim)
 add_executable(hex20_debug_forces hex20_debug_forces.cpp)
 target_link_libraries(hex20_debug_forces PRIVATE nexussim)
 
+add_executable(pd_large_benchmark pd_large_benchmark.cpp)
+target_link_libraries(pd_large_benchmark PRIVATE nexussim)
+
 # Install examples
 install(TARGETS simple_mesh_example kokkos_mpi_test hex8_element_test element_library_test fem_solver_test mesh_reader_test config_driven_test patch_test bending_test hex20_bending_test
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/examples)
