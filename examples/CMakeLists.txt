@@ -90,6 +90,14 @@ target_link_libraries(hex20_debug_forces PRIVATE nexussim)
 add_executable(pd_large_benchmark pd_large_benchmark.cpp)
 target_link_libraries(pd_large_benchmark PRIVATE nexussim)
 
+add_executable(lsdyna_reader_test lsdyna_reader_test.cpp)
+target_link_libraries(lsdyna_reader_test PRIVATE nexussim)
+
+# Note: radioss_reader_test is defined in main CMakeLists.txt
+
+add_executable(mesh_validator_test mesh_validator_test.cpp)
+target_link_libraries(mesh_validator_test PRIVATE nexussim)
+
 # Install examples
 install(TARGETS simple_mesh_example kokkos_mpi_test hex8_element_test element_library_test fem_solver_test mesh_reader_test config_driven_test patch_test bending_test hex20_bending_test
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/examples)

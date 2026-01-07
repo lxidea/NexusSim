@@ -198,6 +198,7 @@ private:
     void parse_bcs(std::istream& is);
     void parse_impvel(std::istream& is);
     void parse_cload(std::istream& is);
+    void parse_grnod(std::istream& is, const std::string& name);
 
     // Helper functions
     std::string trim(const std::string& s) const;
@@ -215,6 +216,9 @@ private:
     std::map<Index, RadiossPart> parts_;
     std::vector<RadiossBoundaryCondition> bcs_;
     std::vector<RadiossLoad> loads_;
+
+    // Node groups (from /GRNOD)
+    std::map<std::string, std::vector<Index>> node_groups_;
 
     // Node ID to index mapping
     std::map<Index, Index> node_id_to_index_;

@@ -84,6 +84,14 @@ bool RadiossReader::read(const std::string& filename) {
                     Index mat_id = std::stoul(parts[2]);  // "123"
                     parse_mat(file, law, mat_id);
                 }
+            } else if (starts_with(line, "/MAT/ELAST/")) {
+                // Parse elastic material: /MAT/ELAST/id
+                Index mat_id = parse_part_id(line);  // Reuse part_id parser
+                parse_mat(file, "ELAST", mat_id);
+            } else if (starts_with(line, "/GRNOD/")) {
+                // Parse node group: /GRNOD/name
+                std::string grp_name = line.substr(7);  // After "/GRNOD/"
+                parse_grnod(file, grp_name);
             } else if (starts_with(line, "/PART/")) {
                 Index part_id = parse_part_id(line);
                 parse_part(file, part_id);
@@ -141,11 +149,14 @@ void RadiossReader::parse_title(std::istream& is) {
 
 void RadiossReader::parse_node(std::istream& is) {
     std::string line;
-    while (std::getline(is, line)) {
+    while (true) {
+        auto pos = is.tellg();
+        if (!std::getline(is, line)) break;
         line = trim(line);
 
         // Stop at next keyword or empty line
         if (line.empty() || line[0] == '/') {
+            is.seekg(pos);
             break;
         }
 
@@ -163,10 +174,15 @@ void RadiossReader::parse_node(std::istream& is) {
 
 void RadiossReader::parse_shell(std::istream& is, Index part_id) {
     std::string line;
-    while (std::getline(is, line)) {
+    while (true) {
+        auto pos = is.tellg();
+        if (!std::getline(is, line)) break;
         line = trim(line);
 
-        if (line.empty() || line[0] == '/') break;
+        if (line.empty() || line[0] == '/') {
+            is.seekg(pos);  // Put the line back for main loop
+            break;
+        }
         if (line[0] == '#') continue;
 
         // Parse: elem_id n1 n2 n3 n4 [optional fields]
@@ -185,10 +201,15 @@ void RadiossReader::parse_shell(std::istream& is, Index part_id) {
 
 void RadiossReader::parse_sh3n(std::istream& is, Index part_id) {
     std::string line;
-    while (std::getline(is, line)) {
+    while (true) {
+        auto pos = is.tellg();
+        if (!std::getline(is, line)) break;
         line = trim(line);
 
-        if (line.empty() || line[0] == '/') break;
+        if (line.empty() || line[0] == '/') {
+            is.seekg(pos);
+            break;
+        }
         if (line[0] == '#') continue;
 
         // Parse: elem_id n1 n2 n3
@@ -207,10 +228,15 @@ void RadiossReader::parse_sh3n(std::istream& is, Index part_id) {
 
 void RadiossReader::parse_brick(std::istream& is, Index part_id) {
     std::string line;
-    while (std::getline(is, line)) {
+    while (true) {
+        auto pos = is.tellg();
+        if (!std::getline(is, line)) break;
         line = trim(line);
 
-        if (line.empty() || line[0] == '/') break;
+        if (line.empty() || line[0] == '/') {
+            is.seekg(pos);
+            break;
+        }
         if (line[0] == '#') continue;
 
         // Parse: elem_id n1 n2 n3 n4 n5 n6 n7 n8
@@ -229,10 +255,15 @@ void RadiossReader::parse_brick(std::istream& is, Index part_id) {
 
 void RadiossReader::parse_beam(std::istream& is, Index part_id) {
     std::string line;
-    while (std::getline(is, line)) {
+    while (true) {
+        auto pos = is.tellg();
+        if (!std::getline(is, line)) break;
         line = trim(line);
 
-        if (line.empty() || line[0] == '/') break;
+        if (line.empty() || line[0] == '/') {
+            is.seekg(pos);
+            break;
+        }
         if (line[0] == '#') continue;
 
         // Parse: elem_id n1 n2 n3 (n3 is orientation node)
@@ -251,10 +282,15 @@ void RadiossReader::parse_beam(std::istream& is, Index part_id) {
 
 void RadiossReader::parse_spring(std::istream& is, Index part_id) {
     std::string line;
-    while (std::getline(is, line)) {
+    while (true) {
+        auto pos = is.tellg();
+        if (!std::getline(is, line)) break;
         line = trim(line);
 
-        if (line.empty() || line[0] == '/') break;
+        if (line.empty() || line[0] == '/') {
+            is.seekg(pos);
+            break;
+        }
         if (line[0] == '#') continue;
 
         // Parse: elem_id n1 n2
@@ -275,6 +311,9 @@ void RadiossReader::parse_mat(std::istream& is, const std::string& law, Index ma
     RadiossMaterial mat;
     mat.id = mat_id;
     mat.law = law;
+    mat.density = 0;
+    mat.E = 0;
+    mat.nu = 0;
 
     std::string line;
 
@@ -283,17 +322,25 @@ void RadiossReader::parse_mat(std::istream& is, const std::string& law, Index ma
         mat.name = trim(line);
     }
 
-    // Line 2: Density
-    if (std::getline(is, line)) {
-        line = trim(line);
-        if (!line.empty() && line[0] != '#') {
-            std::istringstream iss(line);
-            iss >> mat.density;
+    // For ELAST format: Line 2 has density, E, nu all on one line
+    if (law == "ELAST") {
+        if (std::getline(is, line)) {
+            line = trim(line);
+            if (!line.empty() && line[0] != '#') {
+                std::istringstream iss(line);
+                iss >> mat.density >> mat.E >> mat.nu;
+            }
         }
     }
-
-    // For LAW1 (elastic): E, nu
-    if (law == "LAW1") {
+    // For LAW1 (elastic): density on line 2, E and nu on line 3
+    else if (law == "LAW1") {
+        if (std::getline(is, line)) {
+            line = trim(line);
+            if (!line.empty() && line[0] != '#') {
+                std::istringstream iss(line);
+                iss >> mat.density;
+            }
+        }
         if (std::getline(is, line)) {
             line = trim(line);
             if (!line.empty() && line[0] != '#') {
@@ -304,7 +351,15 @@ void RadiossReader::parse_mat(std::istream& is, const std::string& law, Index ma
     }
     // For LAW2 (Johnson-Cook): more complex
     else if (law == "LAW2") {
-        // Simplified: just read E, nu from next line
+        // Simplified: density on line 2
+        if (std::getline(is, line)) {
+            line = trim(line);
+            if (!line.empty() && line[0] != '#') {
+                std::istringstream iss(line);
+                iss >> mat.density;
+            }
+        }
+        // E, nu on line 3
         if (std::getline(is, line)) {
             line = trim(line);
             if (!line.empty() && line[0] != '#') {
@@ -348,10 +403,15 @@ void RadiossReader::parse_bcs(std::istream& is) {
     std::string line;
 
     // Skip until we find constraint data
-    while (std::getline(is, line)) {
+    while (true) {
+        auto pos = is.tellg();
+        if (!std::getline(is, line)) break;
         line = trim(line);
 
-        if (line.empty() || line[0] == '/') break;
+        if (line.empty() || line[0] == '/') {
+            is.seekg(pos);
+            break;
+        }
         if (line[0] == '#') continue;
 
         // Parse node IDs and DOF constraints
@@ -376,10 +436,15 @@ void RadiossReader::parse_impvel(std::istream& is) {
     bc.fix_x = bc.fix_y = bc.fix_z = true;
 
     std::string line;
-    while (std::getline(is, line)) {
+    while (true) {
+        auto pos = is.tellg();
+        if (!std::getline(is, line)) break;
         line = trim(line);
 
-        if (line.empty() || line[0] == '/') break;
+        if (line.empty() || line[0] == '/') {
+            is.seekg(pos);
+            break;
+        }
         if (line[0] == '#') continue;
 
         std::istringstream iss(line);
@@ -400,10 +465,15 @@ void RadiossReader::parse_cload(std::istream& is) {
     load.function_id = 0;
 
     std::string line;
-    while (std::getline(is, line)) {
+    while (true) {
+        auto pos = is.tellg();
+        if (!std::getline(is, line)) break;
         line = trim(line);
 
-        if (line.empty() || line[0] == '/') break;
+        if (line.empty() || line[0] == '/') {
+            is.seekg(pos);
+            break;
+        }
         if (line[0] == '#') continue;
 
         // Simplified: just collect node IDs
@@ -417,6 +487,34 @@ void RadiossReader::parse_cload(std::istream& is) {
     if (!load.node_ids.empty()) {
         load.name = "CLOAD_" + std::to_string(loads_.size());
         loads_.push_back(load);
+    }
+}
+
+void RadiossReader::parse_grnod(std::istream& is, const std::string& name) {
+    std::vector<Index> node_ids;
+
+    std::string line;
+    while (true) {
+        auto pos = is.tellg();
+        if (!std::getline(is, line)) break;
+        line = trim(line);
+
+        if (line.empty() || line[0] == '/') {
+            is.seekg(pos);
+            break;
+        }
+        if (line[0] == '#') continue;
+
+        // Parse node IDs from line
+        std::istringstream iss(line);
+        Index node_id;
+        while (iss >> node_id) {
+            node_ids.push_back(node_id);
+        }
+    }
+
+    if (!node_ids.empty()) {
+        node_groups_[name] = node_ids;
     }
 }
 
@@ -473,10 +571,32 @@ std::shared_ptr<Mesh> RadiossReader::create_mesh() const {
         }
     }
 
+    // Add node sets from parsed node groups (GRNOD)
+    for (const auto& [grp_name, node_ids] : node_groups_) {
+        std::vector<Index> mesh_indices;
+        mesh_indices.reserve(node_ids.size());
+        for (Index nid : node_ids) {
+            auto it = node_id_to_index_.find(nid);
+            if (it != node_id_to_index_.end()) {
+                mesh_indices.push_back(it->second);
+            }
+        }
+        if (!mesh_indices.empty()) {
+            mesh->add_node_set(grp_name, mesh_indices);
+        }
+    }
+
     return mesh;
 }
 
 std::vector<Index> RadiossReader::get_node_set(const std::string& name) const {
+    // Check node groups first
+    auto grp_it = node_groups_.find(name);
+    if (grp_it != node_groups_.end()) {
+        return grp_it->second;
+    }
+
+    // Fall back to boundary conditions
     for (const auto& bc : bcs_) {
         if (bc.name == name) {
             return bc.node_ids;
