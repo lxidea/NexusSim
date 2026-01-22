@@ -98,6 +98,13 @@ target_link_libraries(lsdyna_reader_test PRIVATE nexussim)
 add_executable(mesh_validator_test mesh_validator_test.cpp)
 target_link_libraries(mesh_validator_test PRIVATE nexussim)
 
+# Phase 2: Advanced Contact
+add_executable(voxel_collision_test voxel_collision_test.cpp)
+target_link_libraries(voxel_collision_test PRIVATE nexussim)
+
+add_executable(advanced_contact_test advanced_contact_test.cpp)
+target_link_libraries(advanced_contact_test PRIVATE nexussim)
+
 # Install examples
 install(TARGETS simple_mesh_example kokkos_mpi_test hex8_element_test element_library_test fem_solver_test mesh_reader_test config_driven_test patch_test bending_test hex20_bending_test
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/examples)
