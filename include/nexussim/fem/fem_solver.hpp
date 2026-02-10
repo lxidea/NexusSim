@@ -222,6 +222,13 @@ public:
     std::size_t num_dof() const { return ndof_; }
     std::size_t num_nodes() const { return num_nodes_; }
 
+    // Mesh accessor (for coupling)
+    const Mesh& mesh() const { return *mesh_; }
+    Mesh& mesh() { return *mesh_; }
+
+    // External force accessor (mutable for coupling)
+    auto& external_force() { return force_external_; }
+
 public:
     // ========================================================================
     // Internal Methods (Public for GPU lambda access)

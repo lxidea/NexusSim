@@ -171,9 +171,6 @@ public:
         particles.sync_to_host();
         auto x_pd = particles.x_host();
 
-        // Get FEM node positions
-        auto coords = mesh.node_coords();
-
         // Classify each FEM node
         fem_domain_.resize(num_nodes, DomainType::FEM_Only);
         pd_domain_.resize(num_particles, DomainType::PD_Only);
@@ -185,9 +182,10 @@ public:
         Real pd_max[3] = {-1e30, -1e30, -1e30};
 
         for (Index i = 0; i < num_nodes; ++i) {
+            Vec3r coords = mesh.get_node_coordinates(i);
             for (int d = 0; d < 3; ++d) {
-                fem_min[d] = std::min(fem_min[d], coords(i, d));
-                fem_max[d] = std::max(fem_max[d], coords(i, d));
+                fem_min[d] = std::min(fem_min[d], coords[d]);
+                fem_max[d] = std::max(fem_max[d], coords[d]);
             }
         }
 
@@ -232,7 +230,8 @@ public:
 
         // For each FEM node, check if in overlap and find nearest PD particle
         for (Index i = 0; i < num_nodes; ++i) {
-            Real x[3] = {coords(i, 0), coords(i, 1), coords(i, 2)};
+            Vec3r node_coords = mesh.get_node_coordinates(i);
+            Real x[3] = {node_coords[0], node_coords[1], node_coords[2]};
 
             // Check if in overlap region
             bool in_overlap = true;
@@ -309,8 +308,9 @@ public:
                 Real alpha = m.weight;  // FEM weight (1-alpha for PD)
 
                 // Blend: u_pd = alpha * u_fem + (1-alpha) * u_pd
+                // Note: FEM displacement is stored as flat array [node*3 + dof]
                 for (int d = 0; d < 3; ++d) {
-                    u(pd_id, d) = alpha * fem_disp(fem_id, d) + (1.0 - alpha) * u(pd_id, d);
+                    u(pd_id, d) = alpha * fem_disp(fem_id * 3 + d) + (1.0 - alpha) * u(pd_id, d);
                 }
             });
     }
@@ -327,7 +327,9 @@ public:
 
         // For each coupled pair, add PD force contribution to FEM
         // This modifies the FEM external force vector
-        auto& f_ext = fem_solver_->external_force();
+        auto& f_ext_dual = fem_solver_->external_force();
+        f_ext_dual.sync_device();
+        auto f_ext = f_ext_dual.view_device();
 
         auto map_device = Kokkos::View<NodeParticleMap*>("map", node_particle_map_.size());
         auto map_host = Kokkos::create_mirror_view(map_device);
@@ -349,11 +351,14 @@ public:
                 Real pd_weight = 1.0 - alpha;
                 Real V = volume(pd_id);
 
+                // Note: FEM force is stored as flat array [node*3 + dof]
                 for (int d = 0; d < 3; ++d) {
                     // f = force_density * volume
-                    Kokkos::atomic_add(&f_ext(fem_id, d), pd_weight * f_pd(pd_id, d) * V);
+                    Kokkos::atomic_add(&f_ext(fem_id * 3 + d), pd_weight * f_pd(pd_id, d) * V);
                 }
             });
+
+        f_ext_dual.modify_device();
     }
 
     /**
