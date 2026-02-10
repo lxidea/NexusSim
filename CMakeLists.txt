@@ -302,6 +302,9 @@ target_link_libraries(pd_fem_coupling_test PRIVATE nexussim)
 add_executable(fem_pd_integration_test examples/fem_pd_integration_test.cpp)
 target_link_libraries(fem_pd_integration_test PRIVATE nexussim)
 
+add_executable(mpi_partition_test examples/mpi_partition_test.cpp)
+target_link_libraries(mpi_partition_test PRIVATE nexussim)
+
 # Wave 5: Performance Optimization
 add_executable(comprehensive_benchmark examples/comprehensive_benchmark.cpp)
 target_link_libraries(comprehensive_benchmark PRIVATE nexussim)
