@@ -66,6 +66,19 @@ enum class MaterialName {
     Wood_Oak,                     ///< Oak wood (along grain)
     Glass_SodaLime,               ///< Soda-lime glass
 
+    // Foams
+    Foam_EPS,                     ///< Expanded polystyrene (EPS) foam
+    Foam_PU_Soft,                 ///< Soft polyurethane foam
+    Foam_PU_Rigid,                ///< Rigid polyurethane foam
+
+    // Honeycomb
+    Honeycomb_Al_3003,            ///< Aluminum 3003 honeycomb
+    Honeycomb_Nomex,              ///< Nomex (aramid) honeycomb
+
+    // Rubber/Elastomers
+    Rubber_Neoprene,              ///< Neoprene rubber (CR)
+    Rubber_Silicone,              ///< Silicone rubber
+
     // Generic/Test Materials
     Generic_Soft,                 ///< Soft material for testing
     Generic_Medium,               ///< Medium stiffness for testing
@@ -440,6 +453,87 @@ public:
                 props.thermal_conductivity = 50.0;
                 break;
 
+            // ================================================================
+            // FOAMS
+            // ================================================================
+
+            case MaterialName::Foam_EPS:
+                props.density = 30.0;                // kg/m³
+                props.E = 10.0e6;                    // 10 MPa
+                props.nu = 0.1;
+                props.foam_E_crush = 0.15e6;         // 0.15 MPa plateau
+                props.foam_densification = 0.85;
+                props.foam_unload_factor = 0.05;
+                break;
+
+            case MaterialName::Foam_PU_Soft:
+                props.density = 50.0;                // kg/m³
+                props.E = 5.0e6;                     // 5 MPa
+                props.nu = 0.3;
+                props.foam_E_crush = 0.08e6;         // 80 kPa
+                props.foam_densification = 0.8;
+                props.foam_unload_factor = 0.1;
+                break;
+
+            case MaterialName::Foam_PU_Rigid:
+                props.density = 200.0;               // kg/m³
+                props.E = 200.0e6;                   // 200 MPa
+                props.nu = 0.3;
+                props.foam_E_crush = 5.0e6;          // 5 MPa
+                props.foam_densification = 0.7;
+                props.foam_unload_factor = 0.15;
+                break;
+
+            // ================================================================
+            // HONEYCOMB
+            // ================================================================
+
+            case MaterialName::Honeycomb_Al_3003:
+                props.density = 50.0;                // kg/m³ (core)
+                props.E1 = 1.0e6;                    // In-plane (weak)
+                props.E2 = 1.0e6;
+                props.E3 = 350.0e6;                  // Out-of-plane (strong)
+                props.G12 = 0.3e6;
+                props.G23 = 120.0e6;
+                props.G13 = 60.0e6;
+                props.nu = 0.3;
+                props.foam_E_crush = 2.0e6;          // T-direction crush
+                props.foam_densification = 0.8;
+                break;
+
+            case MaterialName::Honeycomb_Nomex:
+                props.density = 48.0;                // kg/m³
+                props.E1 = 0.5e6;
+                props.E2 = 0.5e6;
+                props.E3 = 140.0e6;
+                props.G12 = 0.2e6;
+                props.G23 = 40.0e6;
+                props.G13 = 24.0e6;
+                props.nu = 0.3;
+                props.foam_E_crush = 1.5e6;
+                props.foam_densification = 0.85;
+                break;
+
+            // ================================================================
+            // RUBBER / ELASTOMERS
+            // ================================================================
+
+            case MaterialName::Rubber_Neoprene:
+                props.density = 1230.0;              // kg/m³
+                props.E = 10.0e6;                    // 10 MPa
+                props.nu = 0.4995;                   // Nearly incompressible
+                props.C10 = 1.5e6;                   // Mooney-Rivlin
+                props.C01 = 0.5e6;
+                break;
+
+            case MaterialName::Rubber_Silicone:
+                props.density = 1100.0;              // kg/m³
+                props.E = 5.0e6;                     // 5 MPa
+                props.nu = 0.4995;
+                props.C10 = 0.8e6;
+                props.C01 = 0.2e6;
+                break;
+
             default:
                 // Return default material
                 break;
@@ -496,6 +590,14 @@ public:
             case MaterialName::Generic_Soft: return "Generic Soft Material";
             case MaterialName::Generic_Medium: return "Generic Medium Material";
             case MaterialName::Generic_Rigid: return "Generic Rigid Material";
+
+            case MaterialName::Foam_EPS: return "EPS Foam";
+            case MaterialName::Foam_PU_Soft: return "Soft PU Foam";
+            case MaterialName::Foam_PU_Rigid: return "Rigid PU Foam";
+            case MaterialName::Honeycomb_Al_3003: return "Aluminum 3003 Honeycomb";
+            case MaterialName::Honeycomb_Nomex: return "Nomex Honeycomb";
+            case MaterialName::Rubber_Neoprene: return "Neoprene Rubber";
+            case MaterialName::Rubber_Silicone: return "Silicone Rubber";
 
             default: return "Unknown Material";
         }

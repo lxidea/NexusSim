@@ -55,7 +55,14 @@ enum class FailureCriterion {
     CockcroftLatham,         ///< Tensile fracture criterion
     TotalStrainEnergy,       ///< Strain energy density
     MinJacobian,             ///< Negative/small Jacobian (element distortion)
-    Combined                 ///< Multiple criteria combined
+    Combined,                ///< Multiple criteria combined
+    // Wave 2: Advanced failure models
+    Hashin,                  ///< Hashin composite failure (4 modes)
+    TsaiWu,                 ///< Tsai-Wu polynomial failure
+    ChangChang,              ///< Chang-Chang laminate failure
+    GTN,                     ///< Gurson-Tvergaard-Needleman ductile damage
+    GISSMO,                  ///< Mesh-regularized damage (automotive)
+    TabulatedEnvelope        ///< User-defined failure envelope
 };
 
 // ============================================================================

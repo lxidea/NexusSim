@@ -16,11 +16,27 @@ namespace physics {
 enum class MaterialType {
     Elastic,           ///< Linear elastic
     Plastic,           ///< Elasto-plastic (J2 plasticity)
-    Hyperelastic,      ///< Hyperelastic (Neo-Hookean, Mooney-Rivlin)
-    Viscoelastic,      ///< Viscoelastic
+    Hyperelastic,      ///< Hyperelastic (Neo-Hookean)
+    Viscoelastic,      ///< Viscoelastic (Maxwell/Prony)
     Damage,            ///< Damage mechanics
     Composite,         ///< Composite material
-    Custom             ///< User-defined
+    Custom,            ///< User-defined
+
+    // Wave 1: Expanded material models
+    JohnsonCook,       ///< Johnson-Cook (already implemented, now distinct type)
+    PiecewiseLinear,   ///< Piecewise-linear plasticity (tabulated yield)
+    Tabulated,         ///< Tabulated stress-strain curve
+    MooneyRivlin,      ///< Mooney-Rivlin hyperelastic
+    Ogden,             ///< Ogden hyperelastic
+    Foam,              ///< Blatz-Ko compressible foam
+    CrushableFoam,     ///< Low-density crushable foam
+    Honeycomb,         ///< Orthotropic honeycomb crush
+    ElasticPlasticFail,///< Elastic-plastic with integrated failure
+    Orthotropic,       ///< Orthotropic elastic
+    CowperSymonds,     ///< Cowper-Symonds rate-dependent
+    Zhao,              ///< Zhao tabulated rate-dependent
+    Rigid,             ///< Rigid material (infinite stiffness)
+    Null               ///< Null material (pressure only, no deviatoric)
 };
 
 // ============================================================================
@@ -41,7 +57,10 @@ struct MaterialState {
     Real F[9];
 
     // History variables (plastic strain, damage, etc.)
-    Real history[10];
+    // Indices 0-6: plastic strain (scalar + tensor), used by J2/JC models
+    // Indices 7-15: available for foam/honeycomb/viscoelastic state
+    // Indices 16-31: available for advanced models (GTN void fraction, etc.)
+    Real history[32];
 
     // Volumetric strain
     Real vol_strain;
@@ -73,7 +92,7 @@ struct MaterialState {
         }
         for (int i = 0; i < 9; ++i) F[i] = 0.0;
         F[0] = F[4] = F[8] = 1.0;  // Identity
-        for (int i = 0; i < 10; ++i) history[i] = 0.0;
+        for (int i = 0; i < 32; ++i) history[i] = 0.0;
         vol_strain = 0.0;
         plastic_strain = 0.0;
         temperature = 293.15;  // Room temperature
@@ -122,6 +141,37 @@ struct MaterialProperties {
     Real thermal_expansion;   ///< Thermal expansion coefficient
     Real thermal_conductivity;///< Thermal conductivity
 
+    // Hyperelastic parameters (Mooney-Rivlin)
+    Real C10;                 ///< Mooney-Rivlin C10 coefficient
+    Real C01;                 ///< Mooney-Rivlin C01 coefficient
+
+    // Ogden parameters (up to 3 terms)
+    Real ogden_mu[3];         ///< Ogden shear modulus terms
+    Real ogden_alpha[3];      ///< Ogden exponent terms
+    int ogden_nterms;         ///< Number of Ogden terms (1-3)
+
+    // Orthotropic elastic constants
+    Real E1, E2, E3;          ///< Directional Young's moduli
+    Real G12, G23, G13;       ///< Directional shear moduli
+    Real nu12, nu23, nu13;    ///< Directional Poisson's ratios
+
+    // Foam/honeycomb parameters
+    Real foam_E_crush;        ///< Crush plateau stress
+    Real foam_densification;  ///< Densification strain
+    Real foam_unload_factor;  ///< Unloading stiffness factor (0-1)
+
+    // Viscoelastic (Prony series, up to 4 terms)
+    Real prony_g[4];          ///< Shear relaxation moduli ratios
+    Real prony_tau[4];        ///< Relaxation time constants
+    int prony_nterms;         ///< Number of Prony terms (1-4)
+
+    // Cowper-Symonds rate parameters: σ_y * (1 + (ε̇/D)^(1/q))
+    Real CS_D;                ///< Cowper-Symonds D parameter
+    Real CS_q;                ///< Cowper-Symonds q exponent
+
+    // Failure strain (for ElasticPlasticFail)
+    Real failure_plastic_strain; ///< Critical plastic strain for failure
+
     // Wave speeds (for explicit time step)
     Real sound_speed;         ///< Longitudinal wave speed
 
@@ -148,6 +198,22 @@ struct MaterialProperties {
         , specific_heat(1000.0)
         , thermal_expansion(1.0e-5)
         , thermal_conductivity(50.0)
+        , C10(0.0), C01(0.0)
+        , ogden_mu{0.0, 0.0, 0.0}
+        , ogden_alpha{2.0, -2.0, 1.0}
+        , ogden_nterms(0)
+        , E1(0.0), E2(0.0), E3(0.0)
+        , G12(0.0), G23(0.0), G13(0.0)
+        , nu12(0.0), nu23(0.0), nu13(0.0)
+        , foam_E_crush(0.0)
+        , foam_densification(0.8)
+        , foam_unload_factor(0.1)
+        , prony_g{0.0, 0.0, 0.0, 0.0}
+        , prony_tau{1.0, 1.0, 1.0, 1.0}
+        , prony_nterms(0)
+        , CS_D(1.0)
+        , CS_q(1.0)
+        , failure_plastic_strain(1.0e10)
         , sound_speed(0.0)
     {
         // Compute derived properties
@@ -164,6 +230,64 @@ struct MaterialProperties {
 
         // Sound speed (longitudinal wave speed)
         sound_speed = Kokkos::sqrt(E * (1.0 - nu) / (density * (1.0 + nu) * (1.0 - 2.0 * nu)));
+    }
+};
+
+// ============================================================================
+// Tabulated Curve (GPU-compatible, fixed-size)
+// ============================================================================
+
+/**
+ * @brief GPU-compatible tabulated curve for piecewise-linear interpolation
+ *
+ * Used for tabulated yield stress, stress-strain curves, rate sensitivity,
+ * and load curves. Fixed-size arrays for Kokkos device compatibility.
+ */
+struct TabulatedCurve {
+    static constexpr int MAX_POINTS = 64;
+    Real x[MAX_POINTS];      ///< Independent variable (strain, strain rate, etc.)
+    Real y[MAX_POINTS];      ///< Dependent variable (stress, scale factor, etc.)
+    int num_points;           ///< Number of active data points
+
+    KOKKOS_INLINE_FUNCTION
+    TabulatedCurve() : num_points(0) {
+        for (int i = 0; i < MAX_POINTS; ++i) {
+            x[i] = 0.0;
+            y[i] = 0.0;
+        }
+    }
+
+    /// Add a data point (host-side only)
+    void add_point(Real xv, Real yv) {
+        if (num_points < MAX_POINTS) {
+            x[num_points] = xv;
+            y[num_points] = yv;
+            num_points++;
+        }
+    }
+
+    /// Piecewise-linear interpolation with constant extrapolation
+    KOKKOS_INLINE_FUNCTION
+    Real evaluate(Real xval) const {
+        if (num_points == 0) return 0.0;
+        if (num_points == 1) return y[0];
+
+        // Below range: constant extrapolation
+        if (xval <= x[0]) return y[0];
+        // Above range: constant extrapolation
+        if (xval >= x[num_points - 1]) return y[num_points - 1];
+
+        // Binary search for interval
+        int lo = 0, hi = num_points - 1;
+        while (hi - lo > 1) {
+            int mid = (lo + hi) / 2;
+            if (x[mid] <= xval) lo = mid;
+            else hi = mid;
+        }
+
+        // Linear interpolation
+        Real t = (xval - x[lo]) / (x[hi] - x[lo] + 1.0e-30);
+        return y[lo] + t * (y[hi] - y[lo]);
     }
 };
 
@@ -836,6 +960,14 @@ public:
  */
 class MaterialFactory {
 public:
+    /**
+     * @brief Create a material model instance
+     *
+     * For new material types added in Wave 1, include the corresponding header
+     * and the factory will dispatch to the correct class. Types that require
+     * additional headers (PiecewiseLinear, MooneyRivlin, etc.) are forward-declared
+     * here and implemented in their own headers with a static create() method.
+     */
     static std::unique_ptr<Material> create(MaterialType type,
                                            const MaterialProperties& props) {
         switch (type) {
@@ -843,22 +975,41 @@ public:
                 return std::make_unique<ElasticMaterial>(props);
             case MaterialType::Plastic:
                 return std::make_unique<VonMisesPlasticMaterial>(props);
+            case MaterialType::JohnsonCook:
+                return std::make_unique<JohnsonCookMaterial>(props);
             case MaterialType::Hyperelastic:
                 return std::make_unique<NeoHookeanMaterial>(props);
             default:
-                throw NotImplementedError("Material type not implemented");
+                throw NotImplementedError(
+                    std::string("Material type '") + to_string(type) +
+                    "' not registered in base factory. "
+                    "Include the specific material header and use its create() method.");
         }
     }
 
     static std::string to_string(MaterialType type) {
         switch (type) {
             case MaterialType::Elastic: return "Elastic";
-            case MaterialType::Plastic: return "Plastic";
-            case MaterialType::Hyperelastic: return "Hyperelastic";
+            case MaterialType::Plastic: return "Plastic (VonMises)";
+            case MaterialType::JohnsonCook: return "JohnsonCook";
+            case MaterialType::Hyperelastic: return "Hyperelastic (NeoHookean)";
             case MaterialType::Viscoelastic: return "Viscoelastic";
             case MaterialType::Damage: return "Damage";
             case MaterialType::Composite: return "Composite";
             case MaterialType::Custom: return "Custom";
+            case MaterialType::PiecewiseLinear: return "PiecewiseLinear";
+            case MaterialType::Tabulated: return "Tabulated";
+            case MaterialType::MooneyRivlin: return "MooneyRivlin";
+            case MaterialType::Ogden: return "Ogden";
+            case MaterialType::Foam: return "Foam";
+            case MaterialType::CrushableFoam: return "CrushableFoam";
+            case MaterialType::Honeycomb: return "Honeycomb";
+            case MaterialType::ElasticPlasticFail: return "ElasticPlasticFail";
+            case MaterialType::Orthotropic: return "Orthotropic";
+            case MaterialType::CowperSymonds: return "CowperSymonds";
+            case MaterialType::Zhao: return "Zhao";
+            case MaterialType::Rigid: return "Rigid";
+            case MaterialType::Null: return "Null";
             default: return "Unknown";
         }
     }

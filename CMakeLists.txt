@@ -309,5 +309,37 @@ target_link_libraries(mpi_partition_test PRIVATE nexussim)
 add_executable(comprehensive_benchmark examples/comprehensive_benchmark.cpp)
 target_link_libraries(comprehensive_benchmark PRIVATE nexussim)
 
+# Wave 1: Material Models
+add_executable(material_models_test examples/material_models_test.cpp)
+target_link_libraries(material_models_test PRIVATE nexussim)
+
+# Wave 2: Failure/Damage Models
+add_executable(failure_models_test examples/failure_models_test.cpp)
+target_link_libraries(failure_models_test PRIVATE nexussim)
+
+# Wave 3: Rigid Bodies, Constraints, Rigid Walls
+add_executable(rigid_body_test examples/rigid_body_test.cpp)
+target_link_libraries(rigid_body_test PRIVATE nexussim)
+
+# Wave 4: Loads System
+add_executable(loads_system_test examples/loads_system_test.cpp)
+target_link_libraries(loads_system_test PRIVATE nexussim)
+
+# Wave 5: Tied Contact + EOS
+add_executable(tied_contact_eos_test examples/tied_contact_eos_test.cpp)
+target_link_libraries(tied_contact_eos_test PRIVATE nexussim)
+
 add_executable(kokkos_performance_test examples/kokkos_performance_test.cpp)
 target_link_libraries(kokkos_performance_test PRIVATE Kokkos::kokkos)
+
+# Wave 6: Restart/Checkpoint + Output
+add_executable(restart_output_test examples/restart_output_test.cpp)
+target_link_libraries(restart_output_test PRIVATE nexussim)
+
+# Wave 7: Composite Ply Stacking
+add_executable(composite_layup_test examples/composite_layup_test.cpp)
+target_link_libraries(composite_layup_test PRIVATE nexussim)
+
+# Wave 8: Sensors, Controls, and ALE
+add_executable(sensor_ale_test examples/sensor_ale_test.cpp)
+target_link_libraries(sensor_ale_test PRIVATE nexussim)
