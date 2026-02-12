@@ -343,3 +343,7 @@ target_link_libraries(composite_layup_test PRIVATE nexussim)
 # Wave 8: Sensors, Controls, and ALE
 add_executable(sensor_ale_test examples/sensor_ale_test.cpp)
 target_link_libraries(sensor_ale_test PRIVATE nexussim)
+
+# Realistic multi-system integration tests
+add_executable(realistic_crash_test examples/realistic_crash_test.cpp)
+target_link_libraries(realistic_crash_test PRIVATE nexussim)
