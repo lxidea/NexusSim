@@ -347,3 +347,7 @@ target_link_libraries(sensor_ale_test PRIVATE nexussim)
 # Realistic multi-system integration tests
 add_executable(realistic_crash_test examples/realistic_crash_test.cpp)
 target_link_libraries(realistic_crash_test PRIVATE nexussim)
+
+# Hertzian Contact + Mortar Contact Tests
+add_executable(hertzian_mortar_test examples/hertzian_mortar_test.cpp)
+target_link_libraries(hertzian_mortar_test PRIVATE nexussim)
