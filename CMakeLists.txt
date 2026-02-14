@@ -351,3 +351,7 @@ target_link_libraries(realistic_crash_test PRIVATE nexussim)
 # Hertzian Contact + Mortar Contact Tests
 add_executable(hertzian_mortar_test examples/hertzian_mortar_test.cpp)
 target_link_libraries(hertzian_mortar_test PRIVATE nexussim)
+
+# LS-DYNA Reader Extension Tests
+add_executable(lsdyna_reader_ext_test examples/lsdyna_reader_ext_test.cpp)
+target_link_libraries(lsdyna_reader_ext_test PRIVATE nexussim)
