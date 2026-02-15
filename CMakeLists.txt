@@ -352,6 +352,10 @@ target_link_libraries(realistic_crash_test PRIVATE nexussim)
 add_executable(hertzian_mortar_test examples/hertzian_mortar_test.cpp)
 target_link_libraries(hertzian_mortar_test PRIVATE nexussim)
 
+# Wave 6 Enhanced: Extended Checkpoint + Output
+add_executable(enhanced_output_test examples/enhanced_output_test.cpp)
+target_link_libraries(enhanced_output_test PRIVATE nexussim)
+
 # LS-DYNA Reader Extension Tests
 add_executable(lsdyna_reader_ext_test examples/lsdyna_reader_ext_test.cpp)
 target_link_libraries(lsdyna_reader_ext_test PRIVATE nexussim)

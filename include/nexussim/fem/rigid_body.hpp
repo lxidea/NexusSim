@@ -134,7 +134,9 @@ public:
     const Real* angular_velocity() const { return angular_velocity_; }
 
     Real* force() { return force_; }
+    const Real* force() const { return force_; }
     Real* torque() { return torque_; }
+    const Real* torque() const { return torque_; }
 
     const Quaternion& orientation() const { return orientation_; }
 
