@@ -340,6 +340,9 @@ target_link_libraries(restart_output_test PRIVATE nexussim)
 add_executable(composite_layup_test examples/composite_layup_test.cpp)
 target_link_libraries(composite_layup_test PRIVATE nexussim)
 
+add_executable(composite_progressive_test examples/composite_progressive_test.cpp)
+target_link_libraries(composite_progressive_test PRIVATE nexussim)
+
 # Wave 8: Sensors, Controls, and ALE
 add_executable(sensor_ale_test examples/sensor_ale_test.cpp)
 target_link_libraries(sensor_ale_test PRIVATE nexussim)
