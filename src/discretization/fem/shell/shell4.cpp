@@ -277,40 +277,262 @@ void Shell4Element::mass_matrix(const Real* coords, Real density, Real* M) const
 // ============================================================================
 
 void Shell4Element::stiffness_matrix(const Real* coords, Real E, Real nu, Real* K) const {
-    // Simplified stiffness matrix for flat shell
-    // Full implementation would combine membrane + bending + shear
+    // Flat shell stiffness: membrane + bending + drilling DOF
+    // DOFs per node: (u, v, w, θx, θy, θz) in local coordinates
+    // Membrane: u, v (in-plane translations)
+    // Bending: w (out-of-plane), θx, θy (rotations)
+    // Drilling: θz (in-plane rotation) - small stiffness to avoid singularity
 
     for (int i = 0; i < NUM_DOF * NUM_DOF; ++i) {
         K[i] = 0.0;
     }
 
-    // Membrane stiffness: E*t/(1-ν²)
-    const Real D_membrane = E * thickness_ / (1.0 - nu * nu);
+    // Compute local coordinate system
+    Real e1[3], e2[3], e3[3];
+    local_coordinate_system(coords, e1, e2, e3);
 
-    // Bending stiffness: E*t³/(12*(1-ν²))
-    const Real D_bending = E * thickness_ * thickness_ * thickness_ / (12.0 * (1.0 - nu * nu));
+    // Transform nodal coordinates to local system
+    // Compute centroid
+    Real cx = 0.0, cy = 0.0, cz = 0.0;
+    for (int i = 0; i < NUM_NODES; ++i) {
+        cx += coords[i*3 + 0];
+        cy += coords[i*3 + 1];
+        cz += coords[i*3 + 2];
+    }
+    cx /= NUM_NODES; cy /= NUM_NODES; cz /= NUM_NODES;
 
-    // Use 2x2 Gauss quadrature
+    // Local 2D coordinates of each node
+    Real xl[4], yl[4];
+    for (int i = 0; i < NUM_NODES; ++i) {
+        Real dx = coords[i*3+0] - cx;
+        Real dy = coords[i*3+1] - cy;
+        Real dz = coords[i*3+2] - cz;
+        xl[i] = e1[0]*dx + e1[1]*dy + e1[2]*dz;
+        yl[i] = e2[0]*dx + e2[1]*dy + e2[2]*dz;
+    }
+
+    // Material matrices
+    const Real t = thickness_;
+    const Real fac = E / (1.0 - nu * nu);
+
+    // Plane stress D_m (3x3): for membrane [σxx, σyy, τxy]
+    Real Dm[9] = {0};
+    Dm[0] = fac * t;            // D11
+    Dm[1] = fac * nu * t;       // D12
+    Dm[3] = fac * nu * t;       // D21
+    Dm[4] = fac * t;            // D22
+    Dm[8] = fac * (1.0 - nu) / 2.0 * t;  // D33 (shear)
+
+    // Bending D_b (3x3): [Mxx, Myy, Mxy]
+    Real Db[9] = {0};
+    const Real bfac = fac * t * t * t / 12.0;
+    Db[0] = bfac;               // D11
+    Db[1] = bfac * nu;          // D12
+    Db[3] = bfac * nu;          // D21
+    Db[4] = bfac;               // D22
+    Db[8] = bfac * (1.0 - nu) / 2.0;  // D33
+
+    // 2x2 Gauss quadrature
     Real gp[12], gw[4];
     gauss_quadrature(gp, gw);
 
-    // Simplified: just add some stiffness to make it work
-    // Full implementation would properly integrate B^T * D * B
-
+    // Shear modulus and area for drilling stiffness
+    const Real G = E / (2.0 * (1.0 + nu));
     const Real area = volume(coords);
-    const Real stiffness_scale = D_membrane * area / 4.0;
 
-    // Add diagonal stiffness for translational DOFs
+    for (int ig = 0; ig < 4; ++ig) {
+        const Real xi = gp[ig*3 + 0];
+        const Real eta = gp[ig*3 + 1];
+
+        // Shape function derivatives w.r.t. natural coordinates
+        Real dNdxi[4], dNdeta[4];
+        dNdxi[0] = -0.25 * (1.0 - eta);
+        dNdxi[1] =  0.25 * (1.0 - eta);
+        dNdxi[2] =  0.25 * (1.0 + eta);
+        dNdxi[3] = -0.25 * (1.0 + eta);
+
+        dNdeta[0] = -0.25 * (1.0 - xi);
+        dNdeta[1] = -0.25 * (1.0 + xi);
+        dNdeta[2] =  0.25 * (1.0 + xi);
+        dNdeta[3] =  0.25 * (1.0 - xi);
+
+        // 2D Jacobian in local coordinates: J = [dx/dxi dx/deta; dy/dxi dy/deta]
+        Real J11 = 0, J12 = 0, J21 = 0, J22 = 0;
+        for (int i = 0; i < NUM_NODES; ++i) {
+            J11 += dNdxi[i] * xl[i];
+            J12 += dNdeta[i] * xl[i];
+            J21 += dNdxi[i] * yl[i];
+            J22 += dNdeta[i] * yl[i];
+        }
+
+        Real det_J = J11 * J22 - J12 * J21;
+        if (std::abs(det_J) < 1.0e-20) continue;
+
+        Real inv_det = 1.0 / det_J;
+
+        // Shape function derivatives w.r.t. local physical coordinates
+        Real dNdx[4], dNdy[4];
+        for (int i = 0; i < NUM_NODES; ++i) {
+            dNdx[i] = inv_det * ( J22 * dNdxi[i] - J21 * dNdeta[i]);
+            dNdy[i] = inv_det * (-J12 * dNdxi[i] + J11 * dNdeta[i]);
+        }
+
+        Real weight = gw[ig] * std::abs(det_J);
+
+        // ---- Membrane part: K_m = integral(B_m^T * D_m * B_m) ----
+        // B_m is 3x(2*4) = 3x8: maps (u1,v1, u2,v2, ...) to (εxx, εyy, γxy)
+        // But in 6-DOF layout, u maps to dof 0, v to dof 1 of each node
+        for (int i = 0; i < NUM_NODES; ++i) {
+            for (int j = 0; j < NUM_NODES; ++j) {
+                // B_m^T * D_m * B_m contribution
+                // Row/Col indices in the membrane sub-matrix
+                Real Bi_T_D_Bj[2][2] = {0};
+
+                // εxx row: dNdx  -> u
+                // εyy row: dNdy  -> v
+                // γxy row: dNdy,dNdx -> u,v
+
+                // k_uu = dNi/dx * D11 * dNj/dx + dNi/dy * D33 * dNj/dy
+                Bi_T_D_Bj[0][0] = dNdx[i] * Dm[0] * dNdx[j] + dNdy[i] * Dm[8] * dNdy[j];
+                // k_uv = dNi/dx * D12 * dNj/dy + dNi/dy * D33 * dNj/dx
+                Bi_T_D_Bj[0][1] = dNdx[i] * Dm[1] * dNdy[j] + dNdy[i] * Dm[8] * dNdx[j];
+                // k_vu = dNi/dy * D21 * dNj/dx + dNi/dx * D33 * dNj/dy
+                Bi_T_D_Bj[1][0] = dNdy[i] * Dm[3] * dNdx[j] + dNdx[i] * Dm[8] * dNdy[j];
+                // k_vv = dNi/dy * D22 * dNj/dy + dNi/dx * D33 * dNj/dx
+                Bi_T_D_Bj[1][1] = dNdy[i] * Dm[4] * dNdy[j] + dNdx[i] * Dm[8] * dNdx[j];
+
+                // Map to global DOF layout (6 DOFs/node):
+                // local u -> DOF 0, local v -> DOF 1
+                for (int di = 0; di < 2; ++di) {
+                    for (int dj = 0; dj < 2; ++dj) {
+                        int row = i * DOF_PER_NODE + di;
+                        int col = j * DOF_PER_NODE + dj;
+                        K[row * NUM_DOF + col] += weight * Bi_T_D_Bj[di][dj];
+                    }
+                }
+            }
+        }
+
+        // ---- Bending part: K_b = integral(B_b^T * D_b * B_b) ----
+        // For Kirchhoff plate (thin shell), bending curvatures:
+        //   κxx = -∂²w/∂x² ≈ dNdx * θy  (using small rotation: θy ≈ ∂w/∂x)
+        //   κyy = -∂²w/∂y² ≈ -dNdy * θx
+        //   κxy = -2*∂²w/∂x∂y ≈ dNdy * θy - dNdx * θx
+        // B_b maps (θx, θy) per node to (κxx, κyy, 2*κxy)
+        // Using DKQ-like approach with bilinear interpolation of rotations:
+        //   κxx = Σ dNi/dx * θyi
+        //   κyy = -Σ dNi/dy * θxi
+        //   κxy = Σ (dNi/dy * θyi - dNi/dx * θxi)
+        for (int i = 0; i < NUM_NODES; ++i) {
+            for (int j = 0; j < NUM_NODES; ++j) {
+                // B_b for node i:
+                //   [  0      dNi/dx  ]   (κxx)
+                //   [ -dNi/dy   0     ]   (κyy)
+                //   [ -dNi/dx  dNi/dy ]   (κxy)
+                // columns correspond to θx, θy
+
+                Real Bi_00 = 0.0,       Bi_01 = dNdx[i];   // row 0 (κxx)
+                Real Bi_10 = -dNdy[i],  Bi_11 = 0.0;       // row 1 (κyy)
+                Real Bi_20 = -dNdx[i],  Bi_21 = dNdy[i];   // row 2 (κxy)
+
+                Real Bj_00 = 0.0,       Bj_01 = dNdx[j];
+                Real Bj_10 = -dNdy[j],  Bj_11 = 0.0;
+                Real Bj_20 = -dNdx[j],  Bj_21 = dNdy[j];
+
+                // Compute B_i^T * D_b * B_j  (2x2)
+                // First column of D*Bj: D * [Bj_00, Bj_10, Bj_20]^T
+                Real DBj_00 = Db[0]*Bj_00 + Db[1]*Bj_10 + 0;
+                Real DBj_10 = Db[3]*Bj_00 + Db[4]*Bj_10 + 0;
+                Real DBj_20 = 0            + 0            + Db[8]*Bj_20;
+
+                // Second column of D*Bj: D * [Bj_01, Bj_11, Bj_21]^T
+                Real DBj_01 = Db[0]*Bj_01 + Db[1]*Bj_11 + 0;
+                Real DBj_11 = Db[3]*Bj_01 + Db[4]*Bj_11 + 0;
+                Real DBj_21 = 0            + 0            + Db[8]*Bj_21;
+
+                // B_i^T * (D*B_j)
+                Real k_txi_txj = Bi_00*DBj_00 + Bi_10*DBj_10 + Bi_20*DBj_20;
+                Real k_txi_tyj = Bi_00*DBj_01 + Bi_10*DBj_11 + Bi_20*DBj_21;
+                Real k_tyi_txj = Bi_01*DBj_00 + Bi_11*DBj_10 + Bi_21*DBj_20;
+                Real k_tyi_tyj = Bi_01*DBj_01 + Bi_11*DBj_11 + Bi_21*DBj_21;
+
+                // Map to global DOFs: θx -> DOF 3, θy -> DOF 4
+                int r3 = i * DOF_PER_NODE + 3;
+                int r4 = i * DOF_PER_NODE + 4;
+                int c3 = j * DOF_PER_NODE + 3;
+                int c4 = j * DOF_PER_NODE + 4;
+
+                K[r3 * NUM_DOF + c3] += weight * k_txi_txj;
+                K[r3 * NUM_DOF + c4] += weight * k_txi_tyj;
+                K[r4 * NUM_DOF + c3] += weight * k_tyi_txj;
+                K[r4 * NUM_DOF + c4] += weight * k_tyi_tyj;
+            }
+        }
+
+        // ---- Bending-transverse coupling: w relates to θx, θy ----
+        // For thin shells, w (DOF 2) couples to rotations through shear
+        // Use a shear correction approach: K_shear = κ*G*t * integral(B_s^T * B_s)
+        // where κ = 5/6 is the shear correction factor
+        // B_s maps (w, θx, θy) to (γxz, γyz):
+        //   γxz = ∂w/∂x + θy   -> dNdx * w + N * θy
+        //   γyz = ∂w/∂y - θx   -> dNdy * w - N * θx
+        // Using selective reduced integration would be better, but
+        // for simplicity use full integration with a scaled shear stiffness
+        Real N_val[4];
+        N_val[0] = 0.25 * (1.0 - xi) * (1.0 - eta);
+        N_val[1] = 0.25 * (1.0 + xi) * (1.0 - eta);
+        N_val[2] = 0.25 * (1.0 + xi) * (1.0 + eta);
+        N_val[3] = 0.25 * (1.0 - xi) * (1.0 + eta);
+
+        const Real kappa = 5.0 / 6.0;
+        const Real Ds = kappa * G * t;
+
+        for (int i = 0; i < NUM_NODES; ++i) {
+            for (int j = 0; j < NUM_NODES; ++j) {
+                // B_s for node i: (for γxz and γyz)
+                // γxz: [dNi/dx, 0, Ni]     maps (w, θx, θy)
+                // γyz: [dNi/dy, -Ni, 0]     maps (w, θx, θy)
+
+                // k_ww = Ds * (dNi/dx*dNj/dx + dNi/dy*dNj/dy)
+                Real k_ww = Ds * (dNdx[i]*dNdx[j] + dNdy[i]*dNdy[j]);
+                // k_w_tx = Ds * (-dNi/dy*Nj)   (from γyz)
+                Real k_w_tx = Ds * (-dNdy[i]*N_val[j]);
+                // k_w_ty = Ds * (dNi/dx*Nj)    (from γxz)
+                Real k_w_ty = Ds * (dNdx[i]*N_val[j]);
+                // k_tx_w = Ds * (-Ni*dNj/dy)
+                Real k_tx_w = Ds * (-N_val[i]*dNdy[j]);
+                // k_tx_tx = Ds * (Ni*Nj)         (from γyz*γyz)
+                Real k_tx_tx = Ds * (N_val[i]*N_val[j]);
+                // k_ty_w = Ds * (Ni*dNj/dx)
+                Real k_ty_w = Ds * (N_val[i]*dNdx[j]);
+                // k_ty_ty = Ds * (Ni*Nj)          (from γxz*γxz)
+                Real k_ty_ty = Ds * (N_val[i]*N_val[j]);
+
+                int rw = i * DOF_PER_NODE + 2;
+                int rtx = i * DOF_PER_NODE + 3;
+                int rty = i * DOF_PER_NODE + 4;
+                int cw = j * DOF_PER_NODE + 2;
+                int ctx = j * DOF_PER_NODE + 3;
+                int cty = j * DOF_PER_NODE + 4;
+
+                K[rw * NUM_DOF + cw]   += weight * k_ww;
+                K[rw * NUM_DOF + ctx]  += weight * k_w_tx;
+                K[rw * NUM_DOF + cty]  += weight * k_w_ty;
+                K[rtx * NUM_DOF + cw]  += weight * k_tx_w;
+                K[rtx * NUM_DOF + ctx] += weight * k_tx_tx;
+                K[rty * NUM_DOF + cw]  += weight * k_ty_w;
+                K[rty * NUM_DOF + cty] += weight * k_ty_ty;
+            }
+        }
+    }
+
+    // ---- Drilling DOF stiffness: prevent singularity in θz ----
+    // Small stiffness α*G*t*A/4 per node
+    const Real alpha_drill = 1.0e-3;
+    const Real k_drill = alpha_drill * G * t * area / 4.0;
     for (int i = 0; i < NUM_NODES; ++i) {
-        for (int d = 0; d < 3; ++d) {
-            const int dof = i * DOF_PER_NODE + d;
-            K[dof * NUM_DOF + dof] = stiffness_scale;
-        }
-        // Rotational stiffness
-        for (int d = 3; d < 6; ++d) {
-            const int dof = i * DOF_PER_NODE + d;
-            K[dof * NUM_DOF + dof] = D_bending * area / 4.0;
-        }
+        int dof = i * DOF_PER_NODE + 5;  // θz
+        K[dof * NUM_DOF + dof] += k_drill;
     }
 }
 

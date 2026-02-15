@@ -289,6 +289,10 @@ target_link_libraries(fem_static_test PRIVATE nexussim)
 add_executable(implicit_dynamic_test examples/implicit_dynamic_test.cpp)
 target_link_libraries(implicit_dynamic_test PRIVATE nexussim)
 
+# Implicit Solver Validation (multi-element)
+add_executable(implicit_validation_test examples/implicit_validation_test.cpp)
+target_link_libraries(implicit_validation_test PRIVATE nexussim)
+
 # Wave 4: Peridynamics Integration
 add_executable(pd_bar_tension_test examples/pd_bar_tension_test.cpp)
 target_link_libraries(pd_bar_tension_test PRIVATE nexussim)

@@ -143,9 +143,10 @@ Real Wedge6Element::shape_derivatives_global(const Real xi[3], const Real* coord
         const Real dNdeta  = dN[i*3 + 1];
         const Real dNdzeta = dN[i*3 + 2];
 
-        dNdx[i*3 + 0] = J_inv[0] * dNdxi + J_inv[1] * dNdeta + J_inv[2] * dNdzeta;
-        dNdx[i*3 + 1] = J_inv[3] * dNdxi + J_inv[4] * dNdeta + J_inv[5] * dNdzeta;
-        dNdx[i*3 + 2] = J_inv[6] * dNdxi + J_inv[7] * dNdeta + J_inv[8] * dNdzeta;
+        // dN/dx_i = Σ_j (J^{-1})_{ji} * dN/dξ_j  (use columns of J_inv = J^{-T})
+        dNdx[i*3 + 0] = J_inv[0] * dNdxi + J_inv[3] * dNdeta + J_inv[6] * dNdzeta;
+        dNdx[i*3 + 1] = J_inv[1] * dNdxi + J_inv[4] * dNdeta + J_inv[7] * dNdzeta;
+        dNdx[i*3 + 2] = J_inv[2] * dNdxi + J_inv[5] * dNdeta + J_inv[8] * dNdzeta;
     }
 
     return det_J;

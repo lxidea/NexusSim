@@ -19,6 +19,8 @@
 #include <nexussim/solver/implicit_solver.hpp>
 #include <nexussim/discretization/hex8.hpp>
 #include <nexussim/discretization/hex20.hpp>
+#include <nexussim/discretization/tet4.hpp>
+#include <nexussim/discretization/tet10.hpp>
 #include <vector>
 #include <set>
 #include <unordered_map>
@@ -308,6 +310,8 @@ private:
         // Create element objects
         fem::Hex8Element hex8;
         fem::Hex20Element hex20;
+        fem::Tet4Element tet4;
+        fem::Tet10Element tet10;
 
         // Process each element block
         for (const auto& block : mesh_->element_blocks()) {
@@ -342,6 +346,10 @@ private:
                     hex8.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
                 } else if (nodes_per_elem == 20) {
                     hex20.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                } else if (nodes_per_elem == 10) {
+                    tet10.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                } else if (nodes_per_elem == 4) {
+                    tet4.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
                 } else {
                     // For other element types, compute manually using B-matrix
                     compute_element_stiffness_generic(block, e, elem_coords, ke);
@@ -362,15 +370,17 @@ private:
                                            std::vector<Real>& ke) {
         // Simple implementation for Tet4
         size_t n = block.num_nodes_per_elem;
-        size_t ndof = n * 3;
 
         std::fill(ke.begin(), ke.end(), 0.0);
 
         if (n == 4) {
             // Tet4: Single integration point
             compute_tet4_stiffness(coords, ke);
+        } else if (n == 10) {
+            // Tet10: 4-point Gauss quadrature
+            fem::Tet10Element tet10;
+            tet10.stiffness_matrix(coords.data(), material_.E, material_.nu, ke.data());
         }
-        // Add other element types as needed
     }
 
     /**
@@ -1026,6 +1036,17 @@ private:
                 z_max = std::max(z_max, coords[i * 3 + 2]);
             }
             return (x_max - x_min) * (y_max - y_min) * (z_max - z_min);
+        } else if (nodes_per_elem == 10) {
+            fem::Tet10Element tet10;
+            return tet10.volume(coords.data());
+        } else if (nodes_per_elem == 4) {
+            // Tet4 volume
+            const Real* x = coords.data();
+            Real a1 = x[3] - x[0], a2 = x[6] - x[0], a3 = x[9] - x[0];
+            Real b1 = x[4] - x[1], b2 = x[7] - x[1], b3 = x[10] - x[1];
+            Real c1 = x[5] - x[2], c2 = x[8] - x[2], c3 = x[11] - x[2];
+            Real V6 = a1*(b2*c3-b3*c2) - a2*(b1*c3-b3*c1) + a3*(b1*c2-b2*c1);
+            return std::abs(V6) / 6.0;
         }
         return 1.0;  // Fallback
     }
@@ -1035,6 +1056,8 @@ private:
         K_global_.zero();
         fem::Hex8Element hex8;
         fem::Hex20Element hex20;
+        fem::Tet4Element tet4;
+        fem::Tet10Element tet10;
 
         for (const auto& block : mesh_->element_blocks()) {
             size_t nodes_per_elem = block.num_nodes_per_elem;
@@ -1065,6 +1088,10 @@ private:
                     hex8.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
                 } else if (nodes_per_elem == 20) {
                     hex20.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                } else if (nodes_per_elem == 10) {
+                    tet10.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                } else if (nodes_per_elem == 4) {
+                    tet4.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
                 }
 
                 K_global_.add_element_matrix(dof_map, ke);
