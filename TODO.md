@@ -2,302 +2,183 @@
 
 **Quick Reference**: Active development priorities
 **Complete Context**: See `docs/PROJECT_CONTEXT.md` for full project ecosystem
-**Last Updated**: 2026-02-10
+**Last Updated**: 2026-02-16
 
 ---
 
 ## Current Status Summary
 
 ```
-Wave 0: Foundation           [████████████████████] 100% ✅
-Wave 1: Preprocessing/Mesh   [███████████████░░░░░]  75% ✅
-Wave 2: Explicit Solver      [████████████████████] 100% ✅ COMPLETE!
-Phase 3A-C: Advanced Physics [████████████████████] 100% ✅ COMPLETE!
-Wave 3: Implicit Solver      [████████████████░░░░]  80% ✅ IMPLEMENTED!
-Wave 4: Peridynamics         [████████████████████] 100% ✅ COMPLETE!
-Wave 5: Optimization         [██████████████░░░░░░]  70% ⏳ GPU READY
-Wave 6: FEM-PD Coupling      [████████████████████] 100% ✅ COMPLETE!
-Wave 7: MPI Parallelization  [████████████████░░░░]  80% ✅ INFRASTRUCTURE READY
+Foundation Waves:
+  Wave 0: Foundation           [████████████████████] 100% ✅
+  Wave 1: Preprocessing/Mesh   [███████████████░░░░░]  75%
+  Wave 2: Explicit Solver      [████████████████████] 100% ✅
+  Phase 3A-C: Advanced Physics  [████████████████████] 100% ✅
+  Wave 3: Implicit Solver      [████████████████░░░░]  80%
+  Wave 4: Peridynamics         [████████████████████] 100% ✅
+  Wave 5: Optimization         [██████████████░░░░░░]  70%
+  Wave 6: FEM-PD Coupling      [████████████████████] 100% ✅
+  Wave 7: MPI Parallelization  [████████████████░░░░]  80%
+
+Gap Closure Waves (all complete):
+  Gap Wave 1: Material Models   [████████████████████] 100% ✅  61 tests
+  Gap Wave 2: Failure Models    [████████████████████] 100% ✅  52 tests
+  Gap Wave 3: Rigid/Constraints [████████████████████] 100% ✅  50 tests
+  Gap Wave 4: Loads System      [████████████████████] 100% ✅  46 tests
+  Gap Wave 5: Tied Contact+EOS  [████████████████████] 100% ✅  34 tests
+  Gap Wave 6: Checkpoint+Output [████████████████████] 100% ✅ 100 tests
+  Gap Wave 7: Composites        [████████████████████] 100% ✅  79 tests
+  Gap Wave 8: Sensors/ALE       [████████████████████] 100% ✅ 111 tests
+
+PD Enhancements:
+  Correspondence Model          [████████████████████] 100% ✅
+  Enhanced Bond Models          [████████████████████] 100% ✅
+  Element Morphing              [████████████████████] 100% ✅
+  Mortar Coupling               [████████████████████] 100% ✅
+  Adaptive Coupling             [████████████████████] 100% ✅  99 tests
 ```
 
-**Completed Features**:
-- 10 element types (all production-ready)
-- Von Mises + Johnson-Cook + Neo-Hookean materials
-- Penalty contact with Coulomb friction
+### Project Metrics
+
+| Metric | Count |
+|--------|-------|
+| Header files | 124 |
+| Test files | 38+ |
+| Test assertions | 1,226+ |
+| Total LOC | ~87,000 |
+| Element types | 10 |
+| Material models | 14+ standard + 3 PD-specific |
+| Failure models | 6 |
+| EOS models | 5 |
+
+---
+
+## ✅ Completed Work
+
+### Foundation (Waves 0-2, Phase 3A-C)
+
+- 10 element types (Hex8, Hex20, Tet4, Tet10, Shell4, Shell3, Wedge6, Beam2, Truss, Spring/Damper)
+- Von Mises, Johnson-Cook, Neo-Hookean materials
+- Penalty contact with Coulomb friction, node-to-surface, Hertzian, mortar
 - Element erosion with multiple failure criteria
 - SPH solver with FEM-SPH coupling
 - Thermal coupling, subcycling, energy monitoring
-- GPU acceleration ready (298M DOFs/sec on OpenMP, GPU pending)
-- **Implicit solver infrastructure** (discovered 2025-12-28)
-- **Peridynamics module** (implemented 2025-12-29)
-- **Performance benchmark suite** (implemented 2025-12-29)
-- **FEM-PD coupling infrastructure** (tested 2026-02-10, 38/38 tests passing)
-- **FEM-PD integration test** (2026-02-10, 27/27 tests - domain setup, material consistency, blending)
-- **MPI partitioning test** (2026-02-10, 22/22 tests - RCB partition, ghost exchange, comm patterns)
+- GPU acceleration ready (298M DOFs/sec on OpenMP)
+
+### Implicit Solver (Wave 3)
+
+- Sparse matrix (CSR), CG solver, direct solver
+- Jacobi + SSOR preconditioners
+- Newton-Raphson with line search
+- Newmark-beta integrator
+- FEM static solver, FEM implicit dynamic solver
+- Element stiffness for Hex8, Tet4
+
+### Peridynamics (Wave 4 + Enhancements)
+
+- Bond-based PD (PMB model) with critical stretch failure
+- Ordinary state-based PD (dilatation + deviatoric)
+- Non-ordinary correspondence model (deformation gradient F, 3 constitutive models)
+- Enhanced bond models (energy-based, microplastic, viscoelastic, short-range repulsion)
+- Johnson-Cook, Drucker-Prager, Johnson-Holmquist 2 PD materials
+- PD contact with spatial hashing and friction
+- FEM-PD coupling (Arlequin, mortar, direct force, morphing)
+- Adaptive coupling with damage-driven zone reclassification
+- Dynamic element morphing (FEM-to-PD conversion)
+
+### Gap Closure (Waves 1-8)
+
+- **Wave 1**: 14 material models (orthotropic, Mooney-Rivlin, Ogden, piecewise-linear, tabulated, foam, crushable foam, honeycomb, viscoelastic, Cowper-Symonds, Zhao, elastic-plastic-fail, rigid, null)
+- **Wave 2**: 6 failure models (Hashin, Tsai-Wu, Chang-Chang, GTN, GISSMO, tabulated)
+- **Wave 3**: Rigid bodies, constraints (RBE2/RBE3/joints), rigid walls (planar/cylindrical/spherical/moving)
+- **Wave 4**: Load curves, load manager, initial conditions
+- **Wave 5**: Tied contact (with failure), EOS (ideal gas, Gruneisen, JWL, polynomial, tabulated)
+- **Wave 6**: Restart/checkpoint (basic + extended), enhanced output (time history, result database, cross-section force, interface force, part energy)
+- **Wave 7**: Composite ply stacking (thermal residual stress, interlaminar shear, progressive failure/FPF/strength envelope)
+- **Wave 8**: Sensors (5 types, CFC filter), controls (8 action types), ALE (3 smoothing, 2 advection)
+
+### I/O and Readers
+
+- Radioss legacy format reader
+- LS-DYNA k-file reader (~30 keywords across 8 groups, 171 tests)
+- VTK animation writer
+- Checkpoint files (basic + extended)
+
+### Performance
+
+- Benchmarking infrastructure (Timer, ScopedTimer, Profiler, MemoryStats)
+- Kokkos multi-backend support (OpenMP active, CUDA/HIP code-ready)
 
 ---
 
-## ✅ Wave 3 - Implicit Solver (MOSTLY IMPLEMENTED!)
+## Remaining Work
 
-### Implemented Components
+### Priority 1: Implicit Solver Completion
 
-The following were found already implemented during code review on 2025-12-28:
+- [ ] Element stiffness matrices for Hex20, Tet10, Shell4
+- [ ] Validation against analytical solutions (cantilever beam, patch tests)
+- [ ] Arc-length method for snap-through buckling (optional)
+- [ ] PETSc integration for very large problems (optional)
 
-| Component | File | Status |
-|-----------|------|--------|
-| **Sparse Matrix (CSR)** | `include/nexussim/solver/implicit_solver.hpp` | ✅ Complete |
-| **Sparse Matrix (CSR) v2** | `include/nexussim/solver/sparse_matrix.hpp` | ✅ Complete |
-| **CG Solver** | `implicit_solver.hpp` (CGSolver) | ✅ Complete |
-| **Direct Solver** | `implicit_solver.hpp` (DirectSolver) | ✅ Complete |
-| **Jacobi Preconditioner** | `sparse_matrix.hpp` | ✅ Complete |
-| **SSOR Preconditioner** | `sparse_matrix.hpp` | ✅ Complete |
-| **Newton-Raphson** | `implicit_solver.hpp` (NewtonRaphsonSolver) | ✅ Complete |
-| **Line Search** | Built into NewtonRaphsonSolver | ✅ Complete |
-| **Newmark-β Integrator** | `implicit_solver.hpp` (NewmarkIntegrator) | ✅ Complete |
-| **Static Solver** | `implicit_solver.hpp` (StaticSolver) | ✅ Complete |
-| **FEM Static Solver** | `fem_static_solver.hpp` (FEMStaticSolver) | ✅ Complete |
-| **FEM Implicit Dynamic** | `fem_static_solver.hpp` (FEMImplicitDynamicSolver) | ✅ Complete |
-| **Element Stiffness** | Hex8, Tet4 stiffness matrices | ✅ Complete |
-| **BC Application** | Penalty method with symmetry | ✅ Complete |
-| **Stiffness Assembly** | `StiffnessAssembler` class | ✅ Complete |
-| **Tests** | `examples/implicit_solver_test.cpp` | ✅ 10 test cases |
+### Priority 2: GPU Performance
 
-### Remaining Work (Wave 3)
+- [ ] GPU benchmarks (requires NVIDIA GPU hardware)
+- [ ] Memory pool allocator to reduce allocation overhead
+- [ ] Multi-GPU scaling (MPI + Kokkos distributed GPU)
 
-- [ ] **Build and run tests** - Verify all tests pass
-- [ ] **Add element stiffness** for Hex20, Tet10, shells
-- [ ] **Validation** - Compare with analytical solutions
-- [ ] **Arc-length method** (optional) - For snap-through buckling
-- [ ] **PETSc integration** (optional) - For very large problems
+### Priority 3: Mesh Preprocessing (Wave 1 Remaining)
+
+- [ ] Mesh quality checks and element Jacobian validation
+- [ ] Automatic mesh refinement / coarsening
+
+### Priority 4: MPI (Wave 7 Remaining)
+
+- [ ] Full MPI-parallel solver integration (infrastructure is ready)
+- [ ] Scalability benchmarks across multiple nodes
 
 ---
 
-## 🔥 CRITICAL: Next Priorities
+## Architecture Overview
 
-### Priority 1: Verify Implicit Solver
+### Header Organization (124 files)
 
-1. Install cmake and build the project
-2. Run `implicit_solver_test` and verify all tests pass
-3. Run `implicit_newmark_test` and `implicit_dynamic_test`
-4. Validate cantilever beam results against analytical solution
+| Subdirectory | Headers | Key Contents |
+|-------------|---------|-------------|
+| `physics/` | 42 | Materials (14), failure (9), composites (5), EOS, erosion, thermal |
+| `fem/` | 18 | Contact, constraints, rigid bodies, loads, sensors, controls |
+| `peridynamics/` | 15 | PD types, particle, neighbor, force, solver, coupling, correspondence |
+| `io/` | 14 | Readers (Radioss, LS-DYNA), VTK writer, checkpoint, output |
+| `discretization/` | 11 | Hex8/20, Tet4/10, Shell3/4, Wedge6, Beam2, Truss, Spring |
+| `core/` | 7 | Types, logger, memory, GPU, MPI, exceptions |
+| `solver/` | 4 | Implicit solver, sparse matrix, GPU sparse, FEM static |
+| `data/` | 4 | Mesh, state, field |
+| `sph/` | 4 | SPH solver, kernel, neighbor search, FEM-SPH coupling |
+| `coupling/` | 3 | Coupling operators, field registry |
+| `ale/` | 1 | ALE solver |
+| `utils/` | 1 | Performance timer |
 
-### Priority 2: Extend Element Support
+### Test Files
 
-1. Add `stiffness_matrix()` to Hex20Element
-2. Add `stiffness_matrix()` to Tet10Element
-3. Add `stiffness_matrix()` to Shell4Element
-4. Integrate additional elements into FEMStaticSolver
-
-### Priority 3: Wave 4 - Peridynamics Integration
-
-See `docs/WHATS_LEFT.md` for Wave 4 details.
-
----
-
-## ✅ Wave 4: Peridynamics Integration (80% IMPLEMENTED!)
-
-### Implemented Components (2025-12-29)
-
-| Component | File | Status |
-|-----------|------|--------|
-| **PD Types** | `include/nexussim/peridynamics/pd_types.hpp` | ✅ Complete |
-| **PD Particle System** | `include/nexussim/peridynamics/pd_particle.hpp` | ✅ Complete |
-| **PD Neighbor List (CSR)** | `include/nexussim/peridynamics/pd_neighbor.hpp` | ✅ Complete |
-| **PD Bond Force** | `include/nexussim/peridynamics/pd_force.hpp` | ✅ Complete |
-| **PD Solver** | `include/nexussim/peridynamics/pd_solver.hpp` | ✅ Complete |
-| **FEM-PD Coupling** | `include/nexussim/peridynamics/pd_fem_coupling.hpp` | ✅ Complete |
-| **PD Test Suite** | `examples/pd_bar_tension_test.cpp` | ✅ 5 test cases |
-
-### Phase 4A: Bond-Based Peridynamics ✅ COMPLETE
-
-- [x] **Port PeriSys algorithms** from `/mnt/d/_working_/FEM-PD/PeriSys-Haoran/code/`
-  - ✅ `JParticle_stress.cu` → `pd_force.hpp` (PDBondForce)
-  - ✅ `JBuildNeighborList.cu` → `pd_neighbor.hpp` (PDNeighborList)
-  - ✅ `Global_Para.cuh` → `pd_types.hpp` (PDMaterial, PDMaterialType)
-
-- [x] **Kokkos kernels** for GPU portability
-- [x] **Material models**: Elastic with critical stretch failure
-
-### Phase 4B: State-Based PD (Remaining)
-
-- [ ] Ordinary state-based PD
-- [ ] Non-ordinary (correspondence model)
-
-### Phase 4C: PD-FEM Coupling ✅ COMPLETE
-
-- [x] Interface detection (overlap region detection)
-- [x] Arlequin/bridging domain method (blending functions)
-- [x] Force/displacement transfer (FEMPDCoupling class)
-- [x] CoupledFEMPDSolver for unified time stepping
-
-### Completed Work (Wave 4) ✅
-
-- [x] **Build and test** - All PD tests pass (11/11)
-- [x] **State-based PD** - Ordinary state-based with dilatation
-- [x] **Johnson-Cook** - With material presets (Al7075, Steel4340, Ti6Al4V, Copper)
-- [x] **Drucker-Prager** - With presets (Sand, Clay, Concrete, Granite)
-- [x] **Johnson-Holmquist 2** - With presets (Alumina, SiC, B4C, Glass)
-- [x] **PD Contact** - Penalty-based with spatial hashing and friction
-
-### Future Enhancements (Optional)
-
-- [ ] Non-ordinary (correspondence) state-based PD
-- [ ] Adaptive FEM-to-PD runtime conversion
-- [ ] GPU-optimized contact with Kokkos
+| Test | Assertions | Area |
+|------|-----------|------|
+| `lsdyna_reader_ext_test.cpp` | 172 | LS-DYNA reader extensions |
+| `sensor_ale_test.cpp` | 104 | Sensors, controls, ALE |
+| `restart_output_test.cpp` | 110 | Checkpoint + output |
+| `enhanced_output_test.cpp` | 97 | Extended output modules |
+| `pd_enhanced_test.cpp` | 99 | PD correspondence, bonds, morphing, coupling |
+| `composite_layup_test.cpp` | 83 | Composite layup system |
+| `composite_progressive_test.cpp` | 78 | Progressive failure |
+| `realistic_crash_test.cpp` | 63 | Multi-system integration |
+| `material_models_test.cpp` | 62 | 14 material models |
+| `hertzian_mortar_test.cpp` | 53 | Hertzian + mortar contact |
+| `failure_models_test.cpp` | 53 | 6 failure models |
+| `rigid_body_test.cpp` | 51 | Rigid bodies + constraints |
+| `loads_system_test.cpp` | 47 | Load curves + initial conditions |
+| `pd_fem_coupling_test.cpp` | 39 | FEM-PD coupling |
+| `tied_contact_eos_test.cpp` | 35 | Tied contact + EOS |
+| `fem_pd_integration_test.cpp` | 29 | FEM-PD integration |
+| `mpi_partition_test.cpp` | 23 | MPI partitioning |
 
 ---
 
-## ⏳ Wave 5: Performance Optimization (IN PROGRESS)
-
-### Implemented Components (2025-12-29)
-
-| Component | File | Status |
-|-----------|------|--------|
-| **Performance Timer** | `include/nexussim/utils/performance_timer.hpp` | ✅ Complete |
-| **Kokkos Benchmark** | `examples/kokkos_performance_test.cpp` | ✅ Complete |
-| **Comprehensive Benchmark** | `examples/comprehensive_benchmark.cpp` | ✅ Complete |
-| **Memory Profiling** | Built into PerformanceStats | ✅ Complete |
-
-### Phase 5A: Benchmarking Infrastructure ✅ COMPLETE
-
-- [x] **Performance Timer Class** - High-resolution timing with `Timer`, `ScopedTimer`
-- [x] **Statistics Collection** - Mean, std dev, min/max for multiple runs
-- [x] **Global Profiler** - Named timers with `NXS_PROFILE_START/STOP` macros
-- [x] **Memory Tracking** - Host/device memory usage in `MemoryStats`
-- [x] **Benchmark Results** - Standardized `BenchmarkResult` struct
-
-### Phase 5B: Kokkos Performance Tests ✅ COMPLETE
-
-- [x] **Vector Operations** - DAXPY-style vector addition
-- [x] **Reductions** - Dot product with `parallel_reduce`
-- [x] **SpMV** - Sparse matrix-vector product
-- [x] **Element Forces** - FEM-like gather-compute-scatter
-- [x] **Time Integration** - DOF update kernel
-
-### Benchmark Results (OpenMP Backend, 64 threads)
-
-```
-Peak Performance (3M DOFs):
-  Element Processing: 10.4 million elements/sec
-  DOF Update Rate:    298 million DOFs/sec
-  Backend:            OpenMP (64 threads)
-```
-
-### Phase 5C: GPU Backend Support ✅ READY
-
-| Backend | Status | Notes |
-|---------|--------|-------|
-| **OpenMP** | ✅ Active | 64 threads, 216M DOFs/sec |
-| **CUDA** | ✅ Code ready | Waiting for NVIDIA GPU |
-| **HIP/ROCm** | ✅ Code ready | Requires native Linux |
-
-- [x] **Multi-backend support** - CUDA, HIP, OpenMP, Serial
-- [x] **Backend detection** - Automatic at compile time
-- [x] **GPU setup documentation** - See `docs/GPU_SETUP.md`
-- [ ] **GPU benchmarks** - Run when GPU available
-- [ ] **Memory Pool Allocator** - Reduce allocation overhead
-- [ ] **Multi-GPU Scaling** - MPI + Kokkos for distributed GPU
-
-### Performance Utilities
-
-| Class | Purpose |
-|-------|---------|
-| `Timer` | High-resolution timing |
-| `ScopedTimer` | RAII automatic timing |
-| `PerformanceStats` | Statistical analysis |
-| `Profiler` | Global named timers |
-| `MemoryStats` | Memory usage tracking |
-| `BenchmarkResult` | Standardized results |
-
-### Usage Example
-
-```cpp
-#include <nexussim/utils/performance_timer.hpp>
-
-// RAII-style timing
-{
-    nxs::utils::ScopedTimer timer("compute_forces");
-    solver.compute_forces();
-}  // Prints: [TIMER] compute_forces: 1.234 ms
-
-// Manual timing
-NXS_PROFILE_START("time_integration");
-solver.step(dt);
-NXS_PROFILE_STOP("time_integration");
-NXS_PROFILE_PRINT();  // Print all stats
-```
-
----
-
-## 📊 Reference Information
-
-### Implicit Solver Key Files
-
-| File | Contents | Lines |
-|------|----------|-------|
-| `include/nexussim/solver/implicit_solver.hpp` | SparseMatrix, CGSolver, DirectSolver, NewtonRaphsonSolver, NewmarkIntegrator, StaticSolver | ~1000 |
-| `include/nexussim/solver/sparse_matrix.hpp` | SparseMatrixCSR, JacobiPreconditioner, SSORPreconditioner, ConjugateGradientSolver, StiffnessAssembler, BoundaryConditionApplicator | ~670 |
-| `include/nexussim/solver/fem_static_solver.hpp` | FEMStaticSolver, FEMImplicitDynamicSolver, mesh generators | ~1100 |
-| `examples/implicit_solver_test.cpp` | 10 test cases | ~515 |
-| `examples/implicit_newmark_test.cpp` | Newmark-β time integration tests | - |
-| `examples/implicit_dynamic_test.cpp` | Dynamic implicit solver tests | - |
-
-### Peridynamics Key Files (Wave 4)
-
-| File | Contents | Lines |
-|------|----------|-------|
-| `include/nexussim/peridynamics/pd_types.hpp` | PDMaterial, PDMaterialType, Kokkos Views | ~275 |
-| `include/nexussim/peridynamics/pd_particle.hpp` | PDParticleSystem, Velocity-Verlet | ~385 |
-| `include/nexussim/peridynamics/pd_neighbor.hpp` | PDNeighborList (CSR), influence functions | ~300 |
-| `include/nexussim/peridynamics/pd_force.hpp` | PDBondForce, bond failure | ~360 |
-| `include/nexussim/peridynamics/pd_solver.hpp` | PDSolver, VTK output | ~300 |
-| `include/nexussim/peridynamics/pd_fem_coupling.hpp` | FEMPDCoupling, CoupledFEMPDSolver | ~500 |
-| `include/nexussim/peridynamics/pd_state_based.hpp` | PDStateForce, PDStateSolver, dilatation | ~450 |
-| `include/nexussim/peridynamics/pd_materials.hpp` | Johnson-Cook, Drucker-Prager, JH-2, presets | ~500 |
-| `include/nexussim/peridynamics/pd_contact.hpp` | PDContact, spatial hashing, friction | ~350 |
-| `examples/pd_bar_tension_test.cpp` | 5 bond-based PD tests | ~300 |
-| `examples/pd_validation_test.cpp` | 6 advanced PD tests | ~350 |
-
-### Wave 5 Performance Files
-
-| File | Contents | Lines |
-|------|----------|-------|
-| `include/nexussim/utils/performance_timer.hpp` | Timer, ScopedTimer, Profiler, MemoryStats, BenchmarkResult | ~280 |
-| `examples/kokkos_performance_test.cpp` | Standalone Kokkos benchmarks | ~300 |
-| `examples/comprehensive_benchmark.cpp` | FEM solver benchmarks | ~350 |
-| `examples/gpu_performance_benchmark.cpp` | GPU-specific benchmarks | ~230 |
-
-### PeriSys Reference (ported from)
-
-| File | Purpose | Ported To |
-|------|---------|-----------|
-| `JParticle_stress.cu` | Stress calculation | `pd_force.hpp` |
-| `JBuildNeighborList.cu` | Neighbor search | `pd_neighbor.hpp` |
-| `Global_Para.cuh` | Materials | `pd_types.hpp` |
-| `JSolve.cu` | Solver loop | `pd_solver.hpp` |
-
----
-
-## 📚 Documentation Files
-
-| Document | Purpose |
-|----------|---------|
-| `docs/PROJECT_CONTEXT.md` | **START HERE** - Complete project context |
-| `docs/WHATS_LEFT.md` | Detailed remaining work |
-| `docs/Development_Roadmap_Status.md` | Phase-by-phase status |
-| `docs/ELEMENT_LIBRARY_STATUS.md` | Element details |
-
----
-
-## Session Recovery Checklist
-
-When starting after crash/disconnect:
-1. Read `docs/PROJECT_CONTEXT.md` for full context
-2. Check this file (`TODO.md`) for priorities
-3. Run `git log --oneline -10` to see recent work
-4. Build and run tests to verify state
-
----
-
-*Last Updated: 2025-12-29*
-*Current Focus: Wave 5 Performance Optimization (40% complete)*
+*Last Updated: 2026-02-16*
