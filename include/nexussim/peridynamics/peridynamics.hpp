@@ -46,6 +46,11 @@
 #include <nexussim/peridynamics/pd_state_based.hpp>
 #include <nexussim/peridynamics/pd_materials.hpp>
 #include <nexussim/peridynamics/pd_contact.hpp>
+#include <nexussim/peridynamics/pd_correspondence.hpp>
+#include <nexussim/peridynamics/pd_bond_models.hpp>
+#include <nexussim/peridynamics/pd_morphing.hpp>
+#include <nexussim/peridynamics/pd_mortar_coupling.hpp>
+#include <nexussim/peridynamics/pd_adaptive_coupling.hpp>
 
 namespace nxs {
 
