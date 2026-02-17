@@ -258,6 +258,7 @@ struct LinearSolverResult {
     int iterations = 0;
     Real residual = 0.0;
     Real relative_residual = 0.0;
+    std::string diagnostic;
 };
 
 /**
@@ -322,6 +323,15 @@ public:
             b_norm += b[i] * b[i];
         }
         b_norm = std::sqrt(b_norm);
+
+        // Guard: NaN/Inf in RHS
+        if (std::isnan(b_norm) || std::isinf(b_norm)) {
+            LinearSolverResult result;
+            result.converged = false;
+            result.diagnostic = "NaN or Inf detected in RHS vector";
+            return result;
+        }
+
         if (b_norm < 1e-14) b_norm = 1.0;
 
         // z = M^{-1} * r (or z = r if no preconditioner)
@@ -338,6 +348,19 @@ public:
 
         LinearSolverResult result;
 
+        // Check initial residual for early exit
+        Real initial_r_norm = 0.0;
+        for (size_t i = 0; i < n; ++i) initial_r_norm += r[i] * r[i];
+        initial_r_norm = std::sqrt(initial_r_norm);
+
+        // Early exit: initial guess already satisfies the system
+        if (initial_r_norm < tolerance_ * b_norm) {
+            result.converged = true;
+            result.residual = initial_r_norm;
+            result.relative_residual = initial_r_norm / b_norm;
+            return result;
+        }
+
         for (int iter = 0; iter < max_iterations_; ++iter) {
             // Ap = A * p
             A.multiply(p, Ap);
@@ -349,6 +372,7 @@ public:
             if (std::abs(pAp) < 1e-30) {
                 result.converged = false;
                 result.iterations = iter;
+                result.diagnostic = "pAp near zero — possible singular or indefinite matrix";
                 return result;
             }
 
@@ -365,6 +389,14 @@ public:
             Real r_norm = 0.0;
             for (size_t i = 0; i < n; ++i) r_norm += r[i] * r[i];
             r_norm = std::sqrt(r_norm);
+
+            // Guard: NaN in residual
+            if (std::isnan(r_norm) || std::isinf(r_norm)) {
+                result.converged = false;
+                result.iterations = iter + 1;
+                result.diagnostic = "NaN or Inf in residual at iteration " + std::to_string(iter + 1);
+                return result;
+            }
 
             result.residual = r_norm;
             result.relative_residual = r_norm / b_norm;
@@ -479,9 +511,17 @@ public:
             x[i] /= dense[i * n + i];
         }
 
+        // Guard: scan solution for NaN/Inf
         LinearSolverResult result;
-        result.converged = true;
         result.iterations = 1;
+        for (size_t i = 0; i < n; ++i) {
+            if (std::isnan(x[i]) || std::isinf(x[i])) {
+                result.converged = false;
+                result.diagnostic = "NaN or Inf in solution after back-substitution";
+                return result;
+            }
+        }
+        result.converged = true;
         return result;
     }
 };

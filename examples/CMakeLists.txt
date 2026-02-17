@@ -105,6 +105,10 @@ target_link_libraries(voxel_collision_test PRIVATE nexussim)
 add_executable(advanced_contact_test advanced_contact_test.cpp)
 target_link_libraries(advanced_contact_test PRIVATE nexussim)
 
+# FEM Robustness Guards
+add_executable(fem_robustness_test fem_robustness_test.cpp)
+target_link_libraries(fem_robustness_test PRIVATE nexussim)
+
 # Install examples
 install(TARGETS simple_mesh_example kokkos_mpi_test hex8_element_test element_library_test fem_solver_test mesh_reader_test config_driven_test patch_test bending_test hex20_bending_test
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/examples)

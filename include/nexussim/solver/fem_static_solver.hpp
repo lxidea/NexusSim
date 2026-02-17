@@ -160,6 +160,16 @@ public:
     }
 
     /**
+     * @brief Get count of elements skipped due to NaN in last assembly
+     */
+    size_t nan_element_count() const { return nan_element_count_; }
+
+    /**
+     * @brief Get count of zero diagonal DOFs detected in last solve
+     */
+    size_t zero_diagonal_count() const { return zero_diagonal_count_; }
+
+    /**
      * @brief Solve linear static problem: K*u = F
      */
     Result solve_linear() {
@@ -171,7 +181,18 @@ public:
         }
 
         // Assemble global stiffness
+        nan_element_count_ = 0;
         assemble_stiffness();
+
+        // Guard: scan free DOFs for zero diagonals
+        zero_diagonal_count_ = 0;
+        for (size_t i = 0; i < ndof_; ++i) {
+            if (constrained_dofs_.count(i) == 0) {
+                if (std::abs(K_global_.get(i, i)) < 1e-30) {
+                    zero_diagonal_count_++;
+                }
+            }
+        }
 
         // Build external force vector
         std::vector<Real> F_ext(ndof_, 0.0);
@@ -196,6 +217,14 @@ public:
         result.converged = lin_result.converged;
         result.iterations = lin_result.iterations;
         result.residual = lin_result.residual;
+
+        // Guard: scan solution for NaN/Inf
+        for (size_t i = 0; i < u.size(); ++i) {
+            if (std::isnan(u[i]) || std::isinf(u[i])) {
+                result.converged = false;
+                break;
+            }
+        }
 
         // Apply prescribed displacements
         for (const auto& bc : dirichlet_bcs_) {
@@ -353,6 +382,19 @@ private:
                 } else {
                     // For other element types, compute manually using B-matrix
                     compute_element_stiffness_generic(block, e, elem_coords, ke);
+                }
+
+                // Guard: scan element stiffness for NaN
+                bool has_nan = false;
+                for (size_t idx = 0; idx < ke.size(); ++idx) {
+                    if (std::isnan(ke[idx]) || std::isinf(ke[idx])) {
+                        has_nan = true;
+                        break;
+                    }
+                }
+                if (has_nan) {
+                    nan_element_count_++;
+                    continue;  // Skip this element
                 }
 
                 // Assemble into global
@@ -562,6 +604,9 @@ private:
     std::set<size_t> constrained_dofs_;
     std::unordered_map<size_t, Real> original_diag_;
     Real penalty_value_ = 0.0;
+
+    size_t nan_element_count_ = 0;
+    size_t zero_diagonal_count_ = 0;
 };
 
 // ============================================================================
@@ -1093,6 +1138,16 @@ private:
                 } else if (nodes_per_elem == 4) {
                     tet4.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
                 }
+
+                // Guard: scan element stiffness for NaN
+                bool has_nan = false;
+                for (size_t idx = 0; idx < ke.size(); ++idx) {
+                    if (std::isnan(ke[idx]) || std::isinf(ke[idx])) {
+                        has_nan = true;
+                        break;
+                    }
+                }
+                if (has_nan) continue;  // Skip this element
 
                 K_global_.add_element_matrix(dof_map, ke);
             }
