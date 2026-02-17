@@ -2,7 +2,7 @@
 
 **Quick Reference**: Active development priorities
 **Complete Context**: See `docs/PROJECT_CONTEXT.md` for full project ecosystem
-**Last Updated**: 2026-02-16
+**Last Updated**: 2026-02-17
 
 ---
 
@@ -75,6 +75,7 @@ PD Enhancements:
 - Element stiffness for Hex8, Hex20, Tet4, Tet10 (all dispatched in solver)
 - Shell4 proper membrane+bending+shear stiffness (B^T*D*B integration)
 - Fixed J_inv transposition bug in all element shape_derivatives_global()
+- Fixed hex20_bending_test NaN: switched from explicit dynamic to static solver, fixed serendipity mesh generation (tensor-product grid created orphan nodes with zero stiffness), added NaN detection
 - Validation test suite: 46 checks across 10 tests (axial, bending, patch, symmetry, PD)
 
 ### Peridynamics (Wave 4 + Enhancements)
@@ -188,4 +189,4 @@ PD Enhancements:
 
 ---
 
-*Last Updated: 2026-02-16*
+*Last Updated: 2026-02-17*
