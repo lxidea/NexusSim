@@ -21,6 +21,7 @@
 #include <nexussim/discretization/hex20.hpp>
 #include <nexussim/discretization/tet4.hpp>
 #include <nexussim/discretization/tet10.hpp>
+#include <nexussim/discretization/shell4.hpp>
 #include <vector>
 #include <set>
 #include <unordered_map>
@@ -101,14 +102,38 @@ public:
 
     /**
      * @brief Initialize solver with mesh
+     *
+     * Auto-detects DOFs per node: 6 if any shell/beam elements present, 3 otherwise.
      */
     void set_mesh(const Mesh& mesh) {
         mesh_ = &mesh;
-        ndof_ = mesh.num_nodes() * 3;  // 3 DOFs per node
+
+        // Detect DOF count from element types
+        dof_per_node_ = 3;
+        for (const auto& block : mesh.element_blocks()) {
+            if (block.type == ElementType::Shell4 || block.type == ElementType::Shell3 ||
+                block.type == ElementType::Shell6 ||
+                block.type == ElementType::Beam2 || block.type == ElementType::Beam3) {
+                dof_per_node_ = 6;
+                break;
+            }
+        }
+
+        ndof_ = mesh.num_nodes() * dof_per_node_;
 
         // Build sparsity pattern from mesh connectivity
         build_sparsity_pattern();
     }
+
+    /**
+     * @brief Set shell thickness for Shell4 elements
+     */
+    void set_shell_thickness(Real t) { shell_thickness_ = t; }
+
+    /**
+     * @brief Get DOFs per node (3 for solids only, 6 if shells present)
+     */
+    int dof_per_node() const { return dof_per_node_; }
 
     /**
      * @brief Set material properties
@@ -122,16 +147,33 @@ public:
      */
     void add_dirichlet_bc(Index node, int dof, Real value = 0.0) {
         dirichlet_bcs_.emplace_back(node, dof, value);
-        constrained_dofs_.insert(node * 3 + dof);
+        constrained_dofs_.insert(node * dof_per_node_ + dof);
     }
 
     /**
-     * @brief Fix all DOFs at a node
+     * @brief Fix translational DOFs (0,1,2) at a node
      */
     void fix_node(Index node) {
         add_dirichlet_bc(node, 0, 0.0);
         add_dirichlet_bc(node, 1, 0.0);
         add_dirichlet_bc(node, 2, 0.0);
+    }
+
+    /**
+     * @brief Fix all DOFs (translations + rotations) at a node
+     */
+    void fix_node_all(Index node) {
+        for (int d = 0; d < dof_per_node_; ++d) {
+            add_dirichlet_bc(node, d, 0.0);
+        }
+    }
+
+    /**
+     * @brief Apply moment at a node
+     * @param rot_dof Rotational DOF index (3=Mx, 4=My, 5=Mz)
+     */
+    void add_moment(Index node, int rot_dof, Real moment) {
+        neumann_bcs_.emplace_back(node, rot_dof, moment);
     }
 
     /**
@@ -197,7 +239,7 @@ public:
         // Build external force vector
         std::vector<Real> F_ext(ndof_, 0.0);
         for (const auto& bc : neumann_bcs_) {
-            size_t dof_idx = bc.node_id * 3 + bc.dof;
+            size_t dof_idx = bc.node_id * dof_per_node_ + bc.dof;
             F_ext[dof_idx] += bc.value;
         }
 
@@ -228,7 +270,7 @@ public:
 
         // Apply prescribed displacements
         for (const auto& bc : dirichlet_bcs_) {
-            size_t dof_idx = bc.node_id * 3 + bc.dof;
+            size_t dof_idx = bc.node_id * dof_per_node_ + bc.dof;
             u[dof_idx] = bc.value;
         }
 
@@ -243,26 +285,28 @@ public:
     }
 
     /**
-     * @brief Get displacement at a node
+     * @brief Get translational displacement at a node
+     * @param dpn DOFs per node (default 3 for backward compatibility)
      */
-    static std::array<Real, 3> get_node_displacement(const Result& result, Index node) {
+    static std::array<Real, 3> get_node_displacement(const Result& result, Index node, int dpn = 3) {
         return {
-            result.displacement[node * 3 + 0],
-            result.displacement[node * 3 + 1],
-            result.displacement[node * 3 + 2]
+            result.displacement[node * dpn + 0],
+            result.displacement[node * dpn + 1],
+            result.displacement[node * dpn + 2]
         };
     }
 
     /**
-     * @brief Compute maximum displacement magnitude
+     * @brief Compute maximum translational displacement magnitude
+     * @param dpn DOFs per node (default 3 for backward compatibility)
      */
-    static Real max_displacement(const Result& result) {
+    static Real max_displacement(const Result& result, int dpn = 3) {
         Real max_disp = 0.0;
-        size_t num_nodes = result.displacement.size() / 3;
+        size_t num_nodes = result.displacement.size() / dpn;
         for (size_t i = 0; i < num_nodes; ++i) {
-            Real ux = result.displacement[i * 3 + 0];
-            Real uy = result.displacement[i * 3 + 1];
-            Real uz = result.displacement[i * 3 + 2];
+            Real ux = result.displacement[i * dpn + 0];
+            Real uy = result.displacement[i * dpn + 1];
+            Real uz = result.displacement[i * dpn + 2];
             Real mag = std::sqrt(ux * ux + uy * uy + uz * uz);
             max_disp = std::max(max_disp, mag);
         }
@@ -317,10 +361,10 @@ private:
 
         for (size_t node_i = 0; node_i < mesh_->num_nodes(); ++node_i) {
             for (size_t node_j : node_adjacency[node_i]) {
-                // Each node pair creates a 3x3 block
-                for (int di = 0; di < 3; ++di) {
-                    for (int dj = 0; dj < 3; ++dj) {
-                        dof_pattern[node_i * 3 + di].push_back(node_j * 3 + dj);
+                // Each node pair creates a dof_per_node x dof_per_node block
+                for (int di = 0; di < dof_per_node_; ++di) {
+                    for (int dj = 0; dj < dof_per_node_; ++dj) {
+                        dof_pattern[node_i * dof_per_node_ + di].push_back(node_j * dof_per_node_ + dj);
                     }
                 }
             }
@@ -341,65 +385,123 @@ private:
         fem::Hex20Element hex20;
         fem::Tet4Element tet4;
         fem::Tet10Element tet10;
+        fem::Shell4Element shell4;
+        shell4.set_thickness(shell_thickness_);
+
+        // Track which nodes are connected to shell elements (for rotational penalty)
+        std::set<Index> shell_nodes;
 
         // Process each element block
         for (const auto& block : mesh_->element_blocks()) {
             size_t nodes_per_elem = block.num_nodes_per_elem;
-            size_t elem_ndof = nodes_per_elem * 3;
+            bool is_shell4 = (block.type == ElementType::Shell4);
 
-            // Element stiffness storage
-            std::vector<Real> ke(elem_ndof * elem_ndof);
-            std::vector<Real> elem_coords(nodes_per_elem * 3);
-            std::vector<Index> dof_map(elem_ndof);
+            if (is_shell4) {
+                // Shell4: 24 DOFs per element (4 nodes × 6 DOFs)
+                size_t elem_ndof = 4 * 6;
+                std::vector<Real> ke(elem_ndof * elem_ndof);
+                std::vector<Real> elem_coords(4 * 3);
+                std::vector<Index> dof_map(elem_ndof);
 
-            for (size_t e = 0; e < block.num_elements(); ++e) {
-                auto elem_nodes = block.element_nodes(e);
+                for (size_t e = 0; e < block.num_elements(); ++e) {
+                    auto elem_nodes = block.element_nodes(e);
 
-                // Gather element coordinates
-                for (size_t i = 0; i < nodes_per_elem; ++i) {
-                    auto coords = mesh_->get_node_coordinates(elem_nodes[i]);
-                    elem_coords[i * 3 + 0] = coords[0];
-                    elem_coords[i * 3 + 1] = coords[1];
-                    elem_coords[i * 3 + 2] = coords[2];
-                }
-
-                // Build DOF map
-                for (size_t i = 0; i < nodes_per_elem; ++i) {
-                    dof_map[i * 3 + 0] = elem_nodes[i] * 3 + 0;
-                    dof_map[i * 3 + 1] = elem_nodes[i] * 3 + 1;
-                    dof_map[i * 3 + 2] = elem_nodes[i] * 3 + 2;
-                }
-
-                // Compute element stiffness based on element type
-                if (nodes_per_elem == 8) {
-                    hex8.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
-                } else if (nodes_per_elem == 20) {
-                    hex20.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
-                } else if (nodes_per_elem == 10) {
-                    tet10.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
-                } else if (nodes_per_elem == 4) {
-                    tet4.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
-                } else {
-                    // For other element types, compute manually using B-matrix
-                    compute_element_stiffness_generic(block, e, elem_coords, ke);
-                }
-
-                // Guard: scan element stiffness for NaN
-                bool has_nan = false;
-                for (size_t idx = 0; idx < ke.size(); ++idx) {
-                    if (std::isnan(ke[idx]) || std::isinf(ke[idx])) {
-                        has_nan = true;
-                        break;
+                    // Gather element coordinates
+                    for (size_t i = 0; i < 4; ++i) {
+                        auto coords = mesh_->get_node_coordinates(elem_nodes[i]);
+                        elem_coords[i * 3 + 0] = coords[0];
+                        elem_coords[i * 3 + 1] = coords[1];
+                        elem_coords[i * 3 + 2] = coords[2];
+                        shell_nodes.insert(elem_nodes[i]);
                     }
-                }
-                if (has_nan) {
-                    nan_element_count_++;
-                    continue;  // Skip this element
-                }
 
-                // Assemble into global
-                K_global_.add_element_matrix(dof_map, ke);
+                    // Compute shell element stiffness in local coordinates
+                    shell4.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+
+                    // Transform local stiffness to global coordinates
+                    transform_shell_stiffness_to_global(elem_coords.data(), ke);
+
+                    // Build DOF map: all 6 DOFs per node
+                    for (size_t i = 0; i < 4; ++i) {
+                        for (int d = 0; d < 6; ++d) {
+                            dof_map[i * 6 + d] = elem_nodes[i] * dof_per_node_ + d;
+                        }
+                    }
+
+                    // Guard: scan element stiffness for NaN
+                    bool has_nan = false;
+                    for (size_t idx = 0; idx < ke.size(); ++idx) {
+                        if (std::isnan(ke[idx]) || std::isinf(ke[idx])) {
+                            has_nan = true;
+                            break;
+                        }
+                    }
+                    if (has_nan) {
+                        nan_element_count_++;
+                        continue;
+                    }
+
+                    K_global_.add_element_matrix(dof_map, ke);
+                }
+            } else {
+                // Solid elements: 3 translational DOFs per node
+                size_t elem_ndof = nodes_per_elem * 3;
+                std::vector<Real> ke(elem_ndof * elem_ndof);
+                std::vector<Real> elem_coords(nodes_per_elem * 3);
+                std::vector<Index> dof_map(elem_ndof);
+
+                for (size_t e = 0; e < block.num_elements(); ++e) {
+                    auto elem_nodes = block.element_nodes(e);
+
+                    // Gather element coordinates
+                    for (size_t i = 0; i < nodes_per_elem; ++i) {
+                        auto coords = mesh_->get_node_coordinates(elem_nodes[i]);
+                        elem_coords[i * 3 + 0] = coords[0];
+                        elem_coords[i * 3 + 1] = coords[1];
+                        elem_coords[i * 3 + 2] = coords[2];
+                    }
+
+                    // Build DOF map: translational DOFs only
+                    for (size_t i = 0; i < nodes_per_elem; ++i) {
+                        dof_map[i * 3 + 0] = elem_nodes[i] * dof_per_node_ + 0;
+                        dof_map[i * 3 + 1] = elem_nodes[i] * dof_per_node_ + 1;
+                        dof_map[i * 3 + 2] = elem_nodes[i] * dof_per_node_ + 2;
+                    }
+
+                    // Compute element stiffness based on element type
+                    if (nodes_per_elem == 8) {
+                        hex8.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                    } else if (nodes_per_elem == 20) {
+                        hex20.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                    } else if (nodes_per_elem == 10) {
+                        tet10.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                    } else if (nodes_per_elem == 4 && block.type == ElementType::Tet4) {
+                        tet4.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                    } else {
+                        compute_element_stiffness_generic(block, e, elem_coords, ke);
+                    }
+
+                    // Guard: scan element stiffness for NaN
+                    bool has_nan = false;
+                    for (size_t idx = 0; idx < ke.size(); ++idx) {
+                        if (std::isnan(ke[idx]) || std::isinf(ke[idx])) {
+                            has_nan = true;
+                            break;
+                        }
+                    }
+                    if (has_nan) {
+                        nan_element_count_++;
+                        continue;
+                    }
+
+                    K_global_.add_element_matrix(dof_map, ke);
+                }
             }
+        }
+
+        // Add rotational penalty for solid-only nodes in 6-DOF mode
+        if (dof_per_node_ == 6) {
+            add_solid_rotational_penalty(shell_nodes);
         }
     }
 
@@ -548,7 +650,7 @@ private:
         Real penalty = std::max(1e12 * max_diag, 1e20);
 
         for (const auto& bc : dirichlet_bcs_) {
-            size_t dof_idx = bc.node_id * 3 + bc.dof;
+            size_t dof_idx = bc.node_id * dof_per_node_ + bc.dof;
 
             // Store original diagonal for reaction computation
             original_diag_[dof_idx] = K_global_.get(dof_idx, dof_idx);
@@ -580,22 +682,116 @@ private:
 
         // Simple estimate: use the penalty equation
         for (const auto& bc : dirichlet_bcs_) {
-            size_t dof_idx = bc.node_id * 3 + bc.dof;
-            // The reaction is F_applied - K*u for the unconstrained system
-            // With penalty: F = penalty * u_prescribed
-            // After solve: u ≈ u_prescribed
-            // Reaction ≈ penalty * (u - u_prescribed) + original_K_ii * u + sum(K_ij * u_j)
-            // For homogeneous BC (u_prescribed=0), R = sum(K_ij * u_j) for j != constrained
-
-            // We stored original diagonal, so estimate reaction from that
+            size_t dof_idx = bc.node_id * dof_per_node_ + bc.dof;
             Real u_i = result.displacement[dof_idx];
             result.reaction_forces[dof_idx] = original_diag_.count(dof_idx) ?
                 penalty_value_ * (bc.value - u_i) : 0.0;
         }
     }
 
+    /**
+     * @brief Transform shell element stiffness from local to global coordinates
+     *
+     * Builds a 24×24 transformation matrix T from shell local axes to global,
+     * then computes K_global = T * K_local * T^T
+     */
+    void transform_shell_stiffness_to_global(const Real* elem_coords,
+                                              std::vector<Real>& ke) {
+        // Get local coordinate system from Shell4
+        fem::Shell4Element shell4_tmp;
+        Real e1[3], e2[3], e3[3];
+        shell4_tmp.local_coordinate_system(elem_coords, e1, e2, e3);
+
+        // Build 24×24 block-diagonal transformation T
+        // 4 blocks of 6×6, each block = [R 0; 0 R] where R = [e1|e2|e3]^T
+        // R transforms from local to global: v_global = R^T * v_local
+        // Actually R = [e1|e2|e3] as columns = local axes in global frame
+        // So v_global = R * v_local, and T maps local DOFs to global DOFs
+
+        constexpr int N = 24;
+        std::vector<Real> T(N * N, 0.0);
+
+        // R matrix: columns are local axes expressed in global frame
+        // R[row][col] where row = global component, col = local component
+        Real R[3][3] = {
+            {e1[0], e2[0], e3[0]},
+            {e1[1], e2[1], e3[1]},
+            {e1[2], e2[2], e3[2]}
+        };
+
+        for (int node = 0; node < 4; ++node) {
+            int base = node * 6;
+            // Translational block (3x3)
+            for (int i = 0; i < 3; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                    T[(base + i) * N + (base + j)] = R[i][j];
+                }
+            }
+            // Rotational block (3x3) - same R
+            for (int i = 0; i < 3; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                    T[(base + 3 + i) * N + (base + 3 + j)] = R[i][j];
+                }
+            }
+        }
+
+        // Compute K_global = T * K_local * T^T
+        // First: temp = K_local * T^T  (24x24)
+        std::vector<Real> temp(N * N, 0.0);
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                Real sum = 0.0;
+                for (int k = 0; k < N; ++k) {
+                    sum += ke[i * N + k] * T[j * N + k]; // T^T[k][j] = T[j][k]
+                }
+                temp[i * N + j] = sum;
+            }
+        }
+
+        // Then: K_global = T * temp  (24x24)
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                Real sum = 0.0;
+                for (int k = 0; k < N; ++k) {
+                    sum += T[i * N + k] * temp[k * N + j];
+                }
+                ke[i * N + j] = sum;
+            }
+        }
+    }
+
+    /**
+     * @brief Add small rotational penalty stiffness for solid-only nodes
+     *
+     * In 6-DOF mode, nodes not connected to any shell element have
+     * unconstrained rotational DOFs. Add a small penalty to prevent singularity.
+     */
+    void add_solid_rotational_penalty(const std::set<Index>& shell_nodes) {
+        // Find max diagonal for scaling
+        Real max_diag = 0.0;
+        for (size_t i = 0; i < ndof_; ++i) {
+            max_diag = std::max(max_diag, std::abs(K_global_.get(i, i)));
+        }
+
+        Real penalty = 1e-6 * max_diag;
+        if (penalty < 1e-20) return;
+
+        for (size_t node = 0; node < mesh_->num_nodes(); ++node) {
+            if (shell_nodes.count(node) == 0) {
+                // Solid-only node: add penalty to rotational DOFs (3,4,5)
+                for (int d = 3; d < 6; ++d) {
+                    size_t dof = node * dof_per_node_ + d;
+                    Real current = K_global_.get(dof, dof);
+                    K_global_.set(dof, dof, current + penalty);
+                }
+            }
+        }
+    }
+
     const Mesh* mesh_ = nullptr;
     size_t ndof_ = 0;
+    int dof_per_node_ = 3;
+    Real shell_thickness_ = 0.01;
     ElasticMaterial material_;
     SparseMatrix K_global_;
 
@@ -722,10 +918,24 @@ public:
 
     /**
      * @brief Initialize solver with mesh
+     *
+     * Auto-detects DOFs per node: 6 if any shell/beam elements present, 3 otherwise.
      */
     void set_mesh(const Mesh& mesh) {
         mesh_ = &mesh;
-        ndof_ = mesh.num_nodes() * 3;
+
+        // Detect DOF count from element types
+        dof_per_node_ = 3;
+        for (const auto& block : mesh.element_blocks()) {
+            if (block.type == ElementType::Shell4 || block.type == ElementType::Shell3 ||
+                block.type == ElementType::Shell6 ||
+                block.type == ElementType::Beam2 || block.type == ElementType::Beam3) {
+                dof_per_node_ = 6;
+                break;
+            }
+        }
+
+        ndof_ = mesh.num_nodes() * dof_per_node_;
 
         // Initialize state vectors
         u_.resize(ndof_, 0.0);
@@ -740,6 +950,9 @@ public:
         // Build stiffness sparsity pattern
         build_sparsity_pattern();
     }
+
+    void set_shell_thickness(Real t) { shell_thickness_ = t; }
+    int dof_per_node() const { return dof_per_node_; }
 
     void set_material(const ElasticMaterial& mat) {
         material_ = mat;
@@ -767,10 +980,10 @@ public:
         damping_beta_ = beta_K;
     }
 
-    // Boundary condition methods (same as static solver)
+    // Boundary condition methods
     void add_dirichlet_bc(Index node, int dof, Real value = 0.0) {
         dirichlet_bcs_.emplace_back(node, dof, value);
-        constrained_dofs_.insert(node * 3 + dof);
+        constrained_dofs_.insert(node * dof_per_node_ + dof);
     }
 
     void fix_node(Index node) {
@@ -779,8 +992,18 @@ public:
         add_dirichlet_bc(node, 2, 0.0);
     }
 
+    void fix_node_all(Index node) {
+        for (int d = 0; d < dof_per_node_; ++d) {
+            add_dirichlet_bc(node, d, 0.0);
+        }
+    }
+
     void add_force(Index node, int dof, Real force) {
         neumann_bcs_.emplace_back(node, dof, force);
+    }
+
+    void add_moment(Index node, int rot_dof, Real moment) {
+        neumann_bcs_.emplace_back(node, rot_dof, moment);
     }
 
     void clear_forces() {
@@ -815,7 +1038,7 @@ public:
 
         std::vector<Real> F_ext(ndof_, 0.0);
         for (const auto& bc : neumann_bcs_) {
-            F_ext[bc.node_id * 3 + bc.dof] += bc.value;
+            F_ext[bc.node_id * dof_per_node_ + bc.dof] += bc.value;
         }
 
         std::vector<Real> Ku;
@@ -823,10 +1046,12 @@ public:
 
         for (size_t i = 0; i < ndof_; ++i) {
             Real Cv_i = damping_alpha_ * M_diag_[i] * v_[i];
-            // Add stiffness-proportional damping (beta*K*v)
-            // For simplicity, approximate with diagonal
 
-            a_[i] = (F_ext[i] - Ku[i] - Cv_i) / M_diag_[i];
+            if (M_diag_[i] > 1e-30) {
+                a_[i] = (F_ext[i] - Ku[i] - Cv_i) / M_diag_[i];
+            } else {
+                a_[i] = 0.0;
+            }
 
             // Apply zero acceleration at constrained DOFs
             if (constrained_dofs_.count(i)) {
@@ -854,7 +1079,7 @@ public:
         // Build external force vector
         std::vector<Real> F_ext(ndof_, 0.0);
         for (const auto& bc : neumann_bcs_) {
-            F_ext[bc.node_id * 3 + bc.dof] += bc.value;
+            F_ext[bc.node_id * dof_per_node_ + bc.dof] += bc.value;
         }
 
         // Newmark coefficients
@@ -1019,9 +1244,9 @@ private:
         std::vector<std::vector<size_t>> dof_pattern(ndof_);
         for (size_t node_i = 0; node_i < mesh_->num_nodes(); ++node_i) {
             for (size_t node_j : node_adjacency[node_i]) {
-                for (int di = 0; di < 3; ++di) {
-                    for (int dj = 0; dj < 3; ++dj) {
-                        dof_pattern[node_i * 3 + di].push_back(node_j * 3 + dj);
+                for (int di = 0; di < dof_per_node_; ++di) {
+                    for (int dj = 0; dj < dof_per_node_; ++dj) {
+                        dof_pattern[node_i * dof_per_node_ + di].push_back(node_j * dof_per_node_ + dj);
                     }
                 }
             }
@@ -1034,14 +1259,19 @@ private:
     void build_mass_matrix() {
         // Lumped mass matrix (diagonal)
         M_diag_.resize(ndof_, 0.0);
+        std::fill(M_diag_.begin(), M_diag_.end(), 0.0);
+
+        fem::Shell4Element shell4_mass;
+        shell4_mass.set_thickness(shell_thickness_);
 
         for (const auto& block : mesh_->element_blocks()) {
             size_t nodes_per_elem = block.num_nodes_per_elem;
+            bool is_shell4 = (block.type == ElementType::Shell4);
 
             for (size_t e = 0; e < block.num_elements(); ++e) {
                 auto elem_nodes = block.element_nodes(e);
 
-                // Gather element coordinates for volume calculation
+                // Gather element coordinates
                 std::vector<Real> elem_coords(nodes_per_elem * 3);
                 for (size_t i = 0; i < nodes_per_elem; ++i) {
                     auto coords = mesh_->get_node_coordinates(elem_nodes[i]);
@@ -1050,15 +1280,25 @@ private:
                     elem_coords[i * 3 + 2] = coords[2];
                 }
 
-                // Compute element volume (approximate for hex8)
-                Real volume = compute_element_volume(elem_coords, nodes_per_elem);
-                Real elem_mass = material_.rho * volume;
-                Real mass_per_node = elem_mass / nodes_per_elem;
+                if (is_shell4) {
+                    // Shell4: use lumped mass (distributes to all 6 DOFs)
+                    Real M_lumped[24];
+                    shell4_mass.lumped_mass_matrix(elem_coords.data(), material_.rho, M_lumped);
+                    for (size_t i = 0; i < 4; ++i) {
+                        for (int d = 0; d < 6; ++d) {
+                            M_diag_[elem_nodes[i] * dof_per_node_ + d] += M_lumped[i * 6 + d];
+                        }
+                    }
+                } else {
+                    // Solid elements: lumped mass to translational DOFs
+                    Real volume = compute_element_volume(elem_coords, nodes_per_elem);
+                    Real elem_mass = material_.rho * volume;
+                    Real mass_per_node = elem_mass / nodes_per_elem;
 
-                // Distribute mass to nodes
-                for (size_t i = 0; i < nodes_per_elem; ++i) {
-                    for (int d = 0; d < 3; ++d) {
-                        M_diag_[elem_nodes[i] * 3 + d] += mass_per_node;
+                    for (size_t i = 0; i < nodes_per_elem; ++i) {
+                        for (int d = 0; d < 3; ++d) {
+                            M_diag_[elem_nodes[i] * dof_per_node_ + d] += mass_per_node;
+                        }
                     }
                 }
             }
@@ -1097,59 +1337,171 @@ private:
     }
 
     void assemble_stiffness() {
-        // Same as FEMStaticSolver
         K_global_.zero();
         fem::Hex8Element hex8;
         fem::Hex20Element hex20;
         fem::Tet4Element tet4;
         fem::Tet10Element tet10;
+        fem::Shell4Element shell4;
+        shell4.set_thickness(shell_thickness_);
+
+        std::set<Index> shell_nodes;
 
         for (const auto& block : mesh_->element_blocks()) {
             size_t nodes_per_elem = block.num_nodes_per_elem;
-            size_t elem_ndof = nodes_per_elem * 3;
+            bool is_shell4 = (block.type == ElementType::Shell4);
 
-            std::vector<Real> ke(elem_ndof * elem_ndof);
-            std::vector<Real> elem_coords(nodes_per_elem * 3);
-            std::vector<Index> dof_map(elem_ndof);
+            if (is_shell4) {
+                size_t elem_ndof = 4 * 6;
+                std::vector<Real> ke(elem_ndof * elem_ndof);
+                std::vector<Real> elem_coords(4 * 3);
+                std::vector<Index> dof_map(elem_ndof);
 
-            for (size_t e = 0; e < block.num_elements(); ++e) {
-                auto elem_nodes = block.element_nodes(e);
+                for (size_t e = 0; e < block.num_elements(); ++e) {
+                    auto elem_nodes = block.element_nodes(e);
 
-                for (size_t i = 0; i < nodes_per_elem; ++i) {
-                    auto coords = mesh_->get_node_coordinates(elem_nodes[i]);
-                    elem_coords[i * 3 + 0] = coords[0];
-                    elem_coords[i * 3 + 1] = coords[1];
-                    elem_coords[i * 3 + 2] = coords[2];
-                }
-
-                for (size_t i = 0; i < nodes_per_elem; ++i) {
-                    dof_map[i * 3 + 0] = elem_nodes[i] * 3 + 0;
-                    dof_map[i * 3 + 1] = elem_nodes[i] * 3 + 1;
-                    dof_map[i * 3 + 2] = elem_nodes[i] * 3 + 2;
-                }
-
-                // Compute element stiffness based on element type
-                if (nodes_per_elem == 8) {
-                    hex8.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
-                } else if (nodes_per_elem == 20) {
-                    hex20.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
-                } else if (nodes_per_elem == 10) {
-                    tet10.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
-                } else if (nodes_per_elem == 4) {
-                    tet4.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
-                }
-
-                // Guard: scan element stiffness for NaN
-                bool has_nan = false;
-                for (size_t idx = 0; idx < ke.size(); ++idx) {
-                    if (std::isnan(ke[idx]) || std::isinf(ke[idx])) {
-                        has_nan = true;
-                        break;
+                    for (size_t i = 0; i < 4; ++i) {
+                        auto coords = mesh_->get_node_coordinates(elem_nodes[i]);
+                        elem_coords[i * 3 + 0] = coords[0];
+                        elem_coords[i * 3 + 1] = coords[1];
+                        elem_coords[i * 3 + 2] = coords[2];
+                        shell_nodes.insert(elem_nodes[i]);
                     }
-                }
-                if (has_nan) continue;  // Skip this element
 
-                K_global_.add_element_matrix(dof_map, ke);
+                    shell4.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                    transform_shell_stiffness_to_global(elem_coords.data(), ke);
+
+                    for (size_t i = 0; i < 4; ++i) {
+                        for (int d = 0; d < 6; ++d) {
+                            dof_map[i * 6 + d] = elem_nodes[i] * dof_per_node_ + d;
+                        }
+                    }
+
+                    bool has_nan = false;
+                    for (size_t idx = 0; idx < ke.size(); ++idx) {
+                        if (std::isnan(ke[idx]) || std::isinf(ke[idx])) {
+                            has_nan = true;
+                            break;
+                        }
+                    }
+                    if (has_nan) continue;
+
+                    K_global_.add_element_matrix(dof_map, ke);
+                }
+            } else {
+                size_t elem_ndof = nodes_per_elem * 3;
+                std::vector<Real> ke(elem_ndof * elem_ndof);
+                std::vector<Real> elem_coords(nodes_per_elem * 3);
+                std::vector<Index> dof_map(elem_ndof);
+
+                for (size_t e = 0; e < block.num_elements(); ++e) {
+                    auto elem_nodes = block.element_nodes(e);
+
+                    for (size_t i = 0; i < nodes_per_elem; ++i) {
+                        auto coords = mesh_->get_node_coordinates(elem_nodes[i]);
+                        elem_coords[i * 3 + 0] = coords[0];
+                        elem_coords[i * 3 + 1] = coords[1];
+                        elem_coords[i * 3 + 2] = coords[2];
+                    }
+
+                    for (size_t i = 0; i < nodes_per_elem; ++i) {
+                        dof_map[i * 3 + 0] = elem_nodes[i] * dof_per_node_ + 0;
+                        dof_map[i * 3 + 1] = elem_nodes[i] * dof_per_node_ + 1;
+                        dof_map[i * 3 + 2] = elem_nodes[i] * dof_per_node_ + 2;
+                    }
+
+                    if (nodes_per_elem == 8) {
+                        hex8.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                    } else if (nodes_per_elem == 20) {
+                        hex20.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                    } else if (nodes_per_elem == 10) {
+                        tet10.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                    } else if (nodes_per_elem == 4 && block.type == ElementType::Tet4) {
+                        tet4.stiffness_matrix(elem_coords.data(), material_.E, material_.nu, ke.data());
+                    }
+
+                    bool has_nan = false;
+                    for (size_t idx = 0; idx < ke.size(); ++idx) {
+                        if (std::isnan(ke[idx]) || std::isinf(ke[idx])) {
+                            has_nan = true;
+                            break;
+                        }
+                    }
+                    if (has_nan) continue;
+
+                    K_global_.add_element_matrix(dof_map, ke);
+                }
+            }
+        }
+
+        // Add rotational penalty for solid-only nodes in 6-DOF mode
+        if (dof_per_node_ == 6) {
+            add_solid_rotational_penalty(shell_nodes);
+        }
+    }
+
+    void transform_shell_stiffness_to_global(const Real* elem_coords,
+                                              std::vector<Real>& ke) {
+        fem::Shell4Element shell4_tmp;
+        Real e1[3], e2[3], e3[3];
+        shell4_tmp.local_coordinate_system(elem_coords, e1, e2, e3);
+
+        constexpr int N = 24;
+        std::vector<Real> T(N * N, 0.0);
+
+        Real R[3][3] = {
+            {e1[0], e2[0], e3[0]},
+            {e1[1], e2[1], e3[1]},
+            {e1[2], e2[2], e3[2]}
+        };
+
+        for (int node = 0; node < 4; ++node) {
+            int base = node * 6;
+            for (int i = 0; i < 3; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                    T[(base + i) * N + (base + j)] = R[i][j];
+                    T[(base + 3 + i) * N + (base + 3 + j)] = R[i][j];
+                }
+            }
+        }
+
+        std::vector<Real> temp(N * N, 0.0);
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                Real sum = 0.0;
+                for (int k = 0; k < N; ++k) {
+                    sum += ke[i * N + k] * T[j * N + k];
+                }
+                temp[i * N + j] = sum;
+            }
+        }
+
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                Real sum = 0.0;
+                for (int k = 0; k < N; ++k) {
+                    sum += T[i * N + k] * temp[k * N + j];
+                }
+                ke[i * N + j] = sum;
+            }
+        }
+    }
+
+    void add_solid_rotational_penalty(const std::set<Index>& shell_nodes) {
+        Real max_diag = 0.0;
+        for (size_t i = 0; i < ndof_; ++i) {
+            max_diag = std::max(max_diag, std::abs(K_global_.get(i, i)));
+        }
+        Real penalty = 1e-6 * max_diag;
+        if (penalty < 1e-20) return;
+
+        for (size_t node = 0; node < mesh_->num_nodes(); ++node) {
+            if (shell_nodes.count(node) == 0) {
+                for (int d = 3; d < 6; ++d) {
+                    size_t dof = node * dof_per_node_ + d;
+                    Real current = K_global_.get(dof, dof);
+                    K_global_.set(dof, dof, current + penalty);
+                }
             }
         }
     }
@@ -1163,7 +1515,7 @@ private:
         Real penalty = std::max(1e12 * max_diag, 1e20);
 
         for (const auto& bc : dirichlet_bcs_) {
-            size_t dof_idx = bc.node_id * 3 + bc.dof;
+            size_t dof_idx = bc.node_id * dof_per_node_ + bc.dof;
             Real current_diag = K_eff_.get(dof_idx, dof_idx);
             K_eff_.set(dof_idx, dof_idx, current_diag + penalty);
             F[dof_idx] = penalty * bc.value;
@@ -1172,6 +1524,8 @@ private:
 
     const Mesh* mesh_ = nullptr;
     size_t ndof_ = 0;
+    int dof_per_node_ = 3;
+    Real shell_thickness_ = 0.01;
     ElasticMaterial material_;
 
     // State vectors
