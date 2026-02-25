@@ -17,6 +17,7 @@
 #include <nexussim/core/core.hpp>
 #include <nexussim/data/mesh.hpp>
 #include <nexussim/solver/implicit_solver.hpp>
+#include <nexussim/solver/arc_length_solver.hpp>
 #include <nexussim/discretization/hex8.hpp>
 #include <nexussim/discretization/hex20.hpp>
 #include <nexussim/discretization/tet4.hpp>
@@ -280,6 +281,93 @@ public:
         if (result.converged) {
             compute_reactions(result);
         }
+
+        return result;
+    }
+
+    /**
+     * @brief Configuration for arc-length analysis
+     */
+    struct ArcLengthConfig {
+        Real arc_length = 0.1;
+        Real psi = 0.0;          // 0 = cylindrical
+        int max_steps = 50;
+        Real tolerance = 1e-6;
+        int max_corrections = 20;
+        Real lambda_max = 2.0;
+        int desired_iterations = 5;
+        Real min_arc_length = 1e-8;
+        Real max_arc_length = 10.0;
+        bool verbose = false;
+    };
+
+    /**
+     * @brief Solve using arc-length method (for snap-through/buckling)
+     *
+     * Builds reference load from Neumann BCs, assembles stiffness, and
+     * uses ArcLengthSolver to trace the nonlinear equilibrium path.
+     */
+    ArcLengthResult solve_arc_length(const ArcLengthConfig& config) {
+        ArcLengthResult empty_result;
+
+        if (!mesh_) {
+            NXS_LOG_ERROR("FEMStaticSolver: No mesh set");
+            return empty_result;
+        }
+
+        // Assemble stiffness once (linear elastic: K is constant)
+        nan_element_count_ = 0;
+        assemble_stiffness();
+
+        // Build reference load vector from Neumann BCs
+        std::vector<Real> F_ref(ndof_, 0.0);
+        for (const auto& bc : neumann_bcs_) {
+            size_t dof_idx = bc.node_id * dof_per_node_ + bc.dof;
+            F_ref[dof_idx] += bc.value;
+        }
+
+        // Zero out constrained DOF loads
+        for (size_t dof : constrained_dofs_) {
+            F_ref[dof] = 0.0;
+        }
+
+        // Apply Dirichlet BCs to tangent stiffness (penalty on diagonal)
+        apply_dirichlet_bcs_tangent(K_global_);
+
+        // Set up arc-length solver
+        ArcLengthSolver arc_solver;
+
+        // Internal force: F_int = K * u (linear elastic)
+        arc_solver.set_internal_force_function(
+            [this](const std::vector<Real>& u, std::vector<Real>& F_int) {
+                K_global_.multiply(u, F_int);
+            });
+
+        // Tangent stiffness: constant K for linear elastic
+        arc_solver.set_tangent_function(
+            [this](const std::vector<Real>& /*u*/, SparseMatrix& K_t) {
+                K_t = K_global_;
+            });
+
+        arc_solver.set_reference_load(F_ref);
+        arc_solver.set_arc_length(config.arc_length);
+        arc_solver.set_psi(config.psi);
+        arc_solver.set_max_steps(config.max_steps);
+        arc_solver.set_tolerance(config.tolerance);
+        arc_solver.set_max_corrections(config.max_corrections);
+        arc_solver.set_desired_iterations(config.desired_iterations);
+        arc_solver.set_arc_length_bounds(config.min_arc_length, config.max_arc_length);
+        arc_solver.set_verbose(config.verbose);
+
+        // Use direct solver for small problems, CG for larger
+        if (ndof_ > 500) {
+            arc_solver.set_linear_solver(LinearSolverType::ConjugateGradient);
+        }
+
+        // Solve
+        std::vector<Real> u(ndof_, 0.0);
+        Real lambda = 0.0;
+        auto result = arc_solver.solve(u, lambda, config.lambda_max);
 
         return result;
     }
@@ -785,6 +873,25 @@ private:
                     K_global_.set(dof, dof, current + penalty);
                 }
             }
+        }
+    }
+
+    /**
+     * @brief Apply Dirichlet BCs to tangent stiffness for arc-length method
+     *
+     * Adds large penalty to constrained DOF diagonal entries so that
+     * constrained DOFs are effectively locked.
+     */
+    void apply_dirichlet_bcs_tangent(SparseMatrix& K) {
+        Real max_diag = 0.0;
+        for (size_t i = 0; i < ndof_; ++i) {
+            max_diag = std::max(max_diag, std::abs(K.get(i, i)));
+        }
+        Real penalty = std::max(1e12 * max_diag, 1e20);
+
+        for (size_t dof : constrained_dofs_) {
+            Real current = K.get(dof, dof);
+            K.set(dof, dof, current + penalty);
         }
     }
 

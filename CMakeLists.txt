@@ -104,6 +104,18 @@ else()
     message(WARNING "HDF5 not found - I/O features will be limited")
 endif()
 
+# PETSc solver (optional)
+option(NEXUSSIM_ENABLE_PETSC "Enable PETSc solver" OFF)
+if(NEXUSSIM_ENABLE_PETSC)
+    find_package(PETSc)
+    if(PETSc_FOUND)
+        add_compile_definitions(NEXUSSIM_HAVE_PETSC)
+        message(STATUS "PETSc found: ${PETSC_LIBRARIES}")
+    else()
+        message(WARNING "PETSc not found - PETSc solver will be disabled")
+    endif()
+endif()
+
 # yaml-cpp for enhanced YAML parsing
 find_package(yaml-cpp QUIET)
 if(yaml-cpp_FOUND)

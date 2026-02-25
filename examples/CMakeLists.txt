@@ -113,6 +113,10 @@ target_link_libraries(fem_robustness_test PRIVATE nexussim)
 add_executable(shell4_solver_test shell4_solver_test.cpp)
 target_link_libraries(shell4_solver_test PRIVATE nexussim)
 
+# Arc-Length Method + PETSc Integration
+add_executable(arc_length_test arc_length_test.cpp)
+target_link_libraries(arc_length_test PRIVATE nexussim)
+
 # Install examples
 install(TARGETS simple_mesh_example kokkos_mpi_test hex8_element_test element_library_test fem_solver_test mesh_reader_test config_driven_test patch_test bending_test hex20_bending_test
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/examples)
