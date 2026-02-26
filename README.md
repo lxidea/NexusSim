@@ -31,47 +31,51 @@ Parent Project: /mnt/d/_working_/FEM-PD/
 3. **Unified Multi-Physics** - FEM + SPH + Peridynamics + DEM in one framework
 4. **Exascale Performance** - 80% efficiency at 10K cores, 5x+ GPU speedup
 
-### Current Status (2025-12-28)
+### Current Status (2026-02-25)
 
 ```
 Wave 0: Foundation           [████████████████████] 100% ✅
 Wave 1: Preprocessing/Mesh   [███████████████░░░░░]  75% ✅
-Wave 2: Explicit Solver      [████████████████████] 100% ✅ COMPLETE!
-Wave 3: Implicit Solver      [░░░░░░░░░░░░░░░░░░░░]   0% ← NEXT PHASE
-Wave 4: Multi-Physics        [████░░░░░░░░░░░░░░░░]  20% (SPH+FSI done)
+Wave 2: Explicit Solver      [████████████████████] 100% ✅
+Wave 3: Implicit Solver      [████████████████████] 100% ✅
+Wave 4: Multi-Physics        [████████████████████] 100% ✅
+Gap Waves 1-8: Feature Closure [████████████████████] 100% ✅
 ```
 
 ---
 
-## Features (Updated 2025-12-28)
+## Features (Updated 2026-02-25)
 
-**Core FEM (Wave 2 Complete)**:
+**Core FEM**:
 - ✅ **10 Element Types**: Hex8, Hex20, Tet4, Tet10, Shell3, Shell4, Wedge6, Beam2, Truss, Spring/Damper
-- ✅ **GPU Acceleration**: Kokkos parallel kernels (11M DOFs/sec measured)
+- ✅ **GPU Acceleration**: Kokkos parallel kernels (298M DOFs/sec on OpenMP)
 - ✅ **Explicit Dynamics**: Central difference, adaptive timestep, subcycling
-- ✅ **Materials**: Elastic, Von Mises, Johnson-Cook, Neo-Hookean hyperelastic
-- ✅ **Contact**: Penalty contact, Coulomb friction, self-contact
-- ✅ **Element Erosion**: Multiple failure criteria, mass redistribution
+- ✅ **14+ Material Models**: Elastic, Von Mises, Johnson-Cook, Neo-Hookean, Mooney-Rivlin, Ogden, orthotropic, foam, crushable foam, honeycomb, viscoelastic, Cowper-Symonds, Zhao, piecewise-linear, tabulated, rigid, null
+- ✅ **6 Failure Models**: Hashin, Tsai-Wu, Chang-Chang, GTN, GISSMO, tabulated
+- ✅ **Contact**: Penalty, node-to-surface, mortar, Hertzian, tied (with failure), Coulomb friction
+- ✅ **Element Erosion**: 15+ failure criteria, mass redistribution
 
-**Multi-Physics (Phase 3A-C Complete)**:
+**Implicit Solver (Complete)**:
+- ✅ **Static & Dynamic**: FEMStaticSolver, FEMImplicitDynamicSolver (Newmark-β)
+- ✅ **Linear Solvers**: CG (Jacobi preconditioned), Direct LU
+- ✅ **Newton-Raphson**: Line search, load stepping
+- ✅ **Arc-Length Method**: Crisfield's cylindrical method for snap-through/buckling, adaptive step sizing
+- ✅ **PETSc Integration**: Optional scalable backend (CG/GMRES/LU/AMG), behind compile guard
+- ✅ **Shell4 6-DOF**: Auto-detection, local→global transform, mixed mesh support
+
+**Multi-Physics**:
 - ✅ **SPH Solver**: Weakly compressible, multiple kernels (Cubic, Wendland, Quintic)
 - ✅ **FEM-SPH Coupling**: Penalty + pressure coupling for FSI
 - ✅ **Thermal Coupling**: Conduction, thermo-mechanical effects
-- ✅ **Energy Monitoring**: Conservation tracking
+- ✅ **Peridynamics**: Bond-based, state-based, correspondence PD with FEM coupling
+- ✅ **Composite Laminates**: CLT, thermal residual stress, progressive failure, strength envelopes
 
 **Infrastructure**:
-- ✅ **Modern C++20**: Clean architecture with Kokkos for GPU portability
-- ✅ **VTK Output**: Full visualization support
-- ✅ **YAML Config**: Flexible input specification
-
-**Next Phase (Wave 3)**:
-- ⏳ **Implicit Solver**: Newton-Raphson, tangent stiffness, static analysis
-- ⏳ **Linear Solvers**: Direct, CG with preconditioners, PETSc integration
-
-**Future (Wave 4)**:
-- 📋 **Peridynamics**: Integration with PeriSys-Haoran for fracture
-- 📋 **PD-FEM Coupling**: Bridging domain methods
-- 📋 **MPI Scaling**: Multi-node parallelization
+- ✅ **Modern C++20**: Kokkos for GPU portability
+- ✅ **I/O**: VTK, Radioss, LS-DYNA readers, checkpoint/restart, enhanced output
+- ✅ **Sensors & Controls**: 5 sensor types with CFC filtering, 8 control actions
+- ✅ **ALE**: 3 smoothing methods, 2 advection methods
+- ✅ **5 EOS Models**: Ideal Gas, Gruneisen, JWL, polynomial, tabulated
 
 ## Quick Start
 
@@ -210,59 +214,41 @@ NexusSim/
 - [Migration Roadmap](docs/Legacy_Migration_Roadmap.md)
 - [API Reference](https://nexussim.readthedocs.io) (Coming soon)
 
-## Roadmap (Updated 2025-12-28)
+## Roadmap (Updated 2026-02-25)
 
-### Completed Waves
+### All Major Development Waves Complete
 
-**Wave 0: Foundation** ✅ **100% COMPLETE**
-- [x] C++20/Kokkos project skeleton
-- [x] Data containers (Mesh, State, Field)
-- [x] Build system (CMake), logging (spdlog)
-- [x] YAML configuration, VTK output
+**Wave 0: Foundation** ✅ **100%**
+- [x] C++20/Kokkos project skeleton, data containers, build system, YAML, VTK
 
-**Wave 1: Preprocessing & Mesh** ✅ **75% COMPLETE**
-- [x] Mesh ingestion (custom format)
-- [x] Programmatic mesh creation
-- [ ] Radioss/LS-DYNA format readers
-- [ ] METIS mesh partitioning
+**Wave 1: Preprocessing & Mesh** ✅ **75%**
+- [x] Mesh ingestion, programmatic creation, Radioss/LS-DYNA readers
 
-**Wave 2: Explicit Solver** ✅ **100% COMPLETE**
-- [x] 10 element types (all production-ready)
-- [x] GPU kernels (Kokkos parallel loops)
-- [x] Materials: Elastic, Von Mises, Johnson-Cook, Neo-Hookean
-- [x] Contact: Penalty, friction, self-contact
-- [x] Element erosion with failure criteria
-- [x] Adaptive timestep, subcycling
+**Wave 2: Explicit Solver** ✅ **100%**
+- [x] 10 element types, GPU kernels, materials, contact, erosion, adaptive timestep
 
-**Phase 3A-C: Advanced Physics** ✅ **100% COMPLETE**
-- [x] Thermal coupling (conduction, thermo-mechanical)
-- [x] SPH solver (weakly compressible, multiple kernels)
-- [x] FEM-SPH coupling (FSI capability)
-- [x] Energy monitoring, consistent mass matrix
+**Phase 3A-C: Advanced Physics** ✅ **100%**
+- [x] Thermal coupling, SPH solver, FEM-SPH coupling, energy monitoring
 
-### Current Phase
+**Wave 3: Implicit Solver** ✅ **100%**
+- [x] Sparse matrix (CSR), CG/Direct solvers, Newton-Raphson with line search
+- [x] Newmark-β integrator, FEM static & implicit dynamic solvers
+- [x] Shell4 6-DOF integration (auto-detection, local→global transform)
+- [x] Arc-length method (Crisfield's cylindrical, adaptive step sizing)
+- [x] PETSc integration (optional, CG/GMRES/LU/AMG, behind compile guard)
 
-**Wave 3: Implicit Solver** ⏳ **0% - NEXT**
-- [ ] Tangent stiffness matrix assembly
-- [ ] Newton-Raphson nonlinear solver
-- [ ] Linear solvers (Direct, CG, preconditioners)
-- [ ] Newmark-β time integration
-- [ ] Static analysis capability
-- [ ] (Optional) PETSc integration
+**Wave 4: Peridynamics** ✅ **100%**
+- [x] Bond-based, state-based, correspondence PD, FEM-PD coupling, element morphing
 
-### Future Phases
+**Gap Waves 1-8: Feature Closure** ✅ **100%**
+- [x] 14 material models, 6 failure models, rigid bodies/constraints, loads, EOS
+- [x] Checkpoint/restart, enhanced output, composites, sensors/controls, ALE
 
-**Wave 4: Peridynamics & Multi-Physics** 📋
-- [ ] Bond-based PD (from PeriSys-Haoran)
-- [ ] State-based PD
-- [ ] PD-FEM coupling (bridging domain)
-- [ ] Crack propagation modeling
+### Remaining Work
 
-**Wave 5: Optimization & Production** 📋
-- [ ] GPU kernel optimization
-- [ ] MPI multi-node scaling
-- [ ] Production format readers
-- [ ] Comprehensive validation suite
+- [ ] GPU benchmarks (requires NVIDIA GPU hardware)
+- [ ] Full MPI-parallel solver integration
+- [ ] Automatic mesh refinement
 
 ## Performance Targets
 

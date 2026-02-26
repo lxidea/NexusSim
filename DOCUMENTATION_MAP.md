@@ -1,7 +1,7 @@
 # NexusSim Documentation Map
 
 **Purpose**: Quick reference guide to all project documentation
-**Last Updated**: 2025-12-28
+**Last Updated**: 2026-02-25
 
 ---
 
@@ -288,5 +288,5 @@ TODO.md   Code    TODO complete   PR     HISTORICAL
 ---
 
 *Created: 2025-11-08*
-*Updated: 2025-12-28*
+*Updated: 2026-02-25*
 *Purpose: Navigation guide for all project documentation*

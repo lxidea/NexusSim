@@ -2,7 +2,7 @@
 
 **Purpose**: This document captures the complete project context, ecosystem, and vision. Read this first when resuming work after a session crash or starting fresh.
 
-**Last Updated**: 2026-02-18
+**Last Updated**: 2026-02-25
 
 ---
 
@@ -23,9 +23,9 @@ A **next-generation multi-physics simulation platform** that:
 | Performance | 20% faster than OpenRadioss, 5x+ GPU speedup | 298M DOFs/sec (OpenMP), 11M DOFs/sec (GPU) |
 | Multi-Physics | Seamless FEM + SPH + PD coupling | **Done** — all solvers + ALE + coupling complete |
 | Scalability | 80% parallel efficiency at 10K cores | Infrastructure ready, not benchmarked at scale |
-| Modern Architecture | C++20, modular, extensible, GPU-first | **Done** — Kokkos, 124 headers, clean modules |
+| Modern Architecture | C++20, modular, extensible, GPU-first | **Done** — Kokkos, 127 headers, clean modules |
 
-### Overall Completion: ~92%
+### Overall Completion: ~95%
 
 ---
 
@@ -45,9 +45,9 @@ A **next-generation multi-physics simulation platform** that:
 │   └── code/              # .cu/.cuh files
 │
 ├── claude-radioss/        # THIS PROJECT - NexusSim
-│   ├── include/nexussim/  # 124 header files
+│   ├── include/nexussim/  # 127 header files
 │   ├── src/               # C++ source files
-│   ├── examples/          # 35 test executables
+│   ├── examples/          # 40+ test executables
 │   └── docs/              # Documentation
 │
 ├── gemini-radioss/        # Alternative implementation (reference)
@@ -69,7 +69,7 @@ A **next-generation multi-physics simulation platform** that:
 │         │                 │                      │              │
 │  ┌──────┴───────┐  ┌─────┴──────┐  ┌───────────┴───────────┐  │
 │  │Implicit Solv │  │  ALE Solv  │  │  PD Enhancements      │  │
-│  │  ✅ ~95%     │  │  ✅ Complete│  │  ✅ Complete           │  │
+│  │  ✅ Complete │  │  ✅ Complete│  │  ✅ Complete           │  │
 │  └──────┬───────┘  └─────┬──────┘  └───────────┬───────────┘  │
 │         │                │                      │              │
 │         └────────┬───────┴──────────────────────┘              │
@@ -140,7 +140,7 @@ Foundation Waves:
   Wave 1: Preprocessing/Mesh   [████████████████░░░░]  80%
   Wave 2: Explicit Solver      [████████████████████] 100% ✅
   Phase 3A-C: Advanced Physics  [████████████████████] 100% ✅
-  Wave 3: Implicit Solver      [███████████████████░]  95%
+  Wave 3: Implicit Solver      [████████████████████] 100% ✅
   Wave 4: Peridynamics         [████████████████████] 100% ✅
   Wave 5: Optimization         [██████████████░░░░░░]  70%
   Wave 6: FEM-PD Coupling      [████████████████████] 100% ✅
@@ -168,10 +168,10 @@ PD Enhancements:
 
 | Metric | Count |
 |--------|-------|
-| Header files | 124 |
-| Test executables | 35 |
-| Test assertions | 1,332+ |
-| Total LOC | ~89,000 |
+| Header files | 127 |
+| Test executables | 40+ |
+| Test assertions | 1,357+ |
+| Total LOC | ~88,300 |
 | Element types | 10 |
 | Material models | 14 standard + 3 PD-specific |
 | Failure models | 6 |
@@ -211,8 +211,10 @@ PD Enhancements:
 | Implicit Static (FEM) | ✅ Complete | Hex8/Hex20/Tet4/Tet10/Shell4 dispatched, 6-DOF auto-detect, robustness guards |
 | Implicit Dynamic (FEM) | ✅ Complete | Newmark-β, Rayleigh damping, Shell4 6-DOF support |
 | Newton-Raphson | ✅ Complete | Line search, load stepping |
+| Arc-Length (Crisfield) | ✅ Complete | Snap-through/buckling, adaptive step sizing |
 | CG Solver | ✅ Complete | Jacobi preconditioner, NaN/pAp guards |
 | Direct Solver | ✅ Complete | LU with pivoting, NaN scan |
+| PETSc Backend | ✅ Optional | CG/GMRES/LU/AMG, behind NEXUSSIM_HAVE_PETSC |
 | SPH | ✅ Complete | Weakly compressible, multiple kernels |
 | Peridynamics | ✅ Complete | Bond, state, correspondence models |
 | ALE | ✅ Complete | 3 smoothing, 2 advection methods |
@@ -264,13 +266,13 @@ PD Enhancements:
 
 ## 6. Remaining Work
 
-### Priority 1: Implicit Solver (remaining ~5%)
+### Priority 1: Implicit Solver ✅ COMPLETE
 
 | Task | Priority | Status |
 |------|----------|--------|
 | Shell4 solver integration (6-DOF) | Medium | ✅ Done — auto-detect, T*K*T^T transform, 24/24 tests |
-| Arc-length method (snap-through buckling) | Low | Optional |
-| PETSc integration (very large problems) | Low | Optional |
+| Arc-length method (snap-through buckling) | Low | ✅ Done — Crisfield's cylindrical, adaptive step, 25/25 tests |
+| PETSc integration (very large problems) | Low | ✅ Done — optional backend, behind NEXUSSIM_HAVE_PETSC |
 
 ### Priority 2: GPU Performance
 
@@ -332,7 +334,7 @@ PD Enhancements:
 | `io/` | 14 | Readers (Radioss, LS-DYNA), VTK writer, checkpoint, output |
 | `discretization/` | 11 | Hex8/20, Tet4/10, Shell3/4, Wedge6, Beam2, Truss, Spring |
 | `core/` | 7 | Types, logger, memory, GPU, MPI, exceptions |
-| `solver/` | 4 | Implicit solver, sparse matrix, GPU sparse, FEM static |
+| `solver/` | 6 | Implicit solver, sparse matrix, GPU sparse, FEM static, arc-length, PETSc |
 | `data/` | 4 | Mesh, state, field |
 | `sph/` | 4 | SPH solver, kernel, neighbor search, FEM-SPH coupling |
 | `coupling/` | 3 | Coupling operators, field registry |
@@ -362,6 +364,7 @@ PD Enhancements:
 | `pd_fem_coupling_test.cpp` | 39 | FEM-PD coupling |
 | `fem_robustness_test.cpp` | 36 | Solver robustness (NaN, singular, degenerate) |
 | `tied_contact_eos_test.cpp` | 35 | Tied contact + EOS |
+| `arc_length_test.cpp` | 25 | Arc-length method (snap-through, truss, FEM arch, PETSc) |
 | `shell4_solver_test.cpp` | 24 | Shell4 6-DOF solver integration |
 | `fem_pd_integration_test.cpp` | 29 | FEM-PD integration |
 | `mpi_partition_test.cpp` | 23 | MPI partitioning |
@@ -382,6 +385,7 @@ cmake --build build -j$(nproc)
 ./build/bin/implicit_validation_test   # 46/46 checks - implicit solver
 ./build/bin/fem_robustness_test        # 36/36 checks - robustness guards
 ./build/bin/shell4_solver_test         # 24/24 checks - Shell4 6-DOF integration
+./build/bin/arc_length_test            # 25/25 checks - arc-length + PETSc
 ./build/bin/hex20_bending_test         # Hex20 convergence study
 ./build/bin/fem_solver_test            # FEM solver integration
 ./build/bin/contact_sphere_plate_test  # Contact mechanics

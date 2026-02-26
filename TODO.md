@@ -2,7 +2,7 @@
 
 **Quick Reference**: Active development priorities
 **Complete Context**: See `docs/PROJECT_CONTEXT.md` for full project ecosystem
-**Last Updated**: 2026-02-18
+**Last Updated**: 2026-02-25
 
 ---
 
@@ -14,7 +14,7 @@ Foundation Waves:
   Wave 1: Preprocessing/Mesh   [███████████████░░░░░]  75%
   Wave 2: Explicit Solver      [████████████████████] 100% ✅
   Phase 3A-C: Advanced Physics  [████████████████████] 100% ✅
-  Wave 3: Implicit Solver      [███████████████████░]  95%
+  Wave 3: Implicit Solver      [████████████████████] 100% ✅
   Wave 4: Peridynamics         [████████████████████] 100% ✅
   Wave 5: Optimization         [██████████████░░░░░░]  70%
   Wave 6: FEM-PD Coupling      [████████████████████] 100% ✅
@@ -42,10 +42,10 @@ PD Enhancements:
 
 | Metric | Count |
 |--------|-------|
-| Header files | 124 |
+| Header files | 127 |
 | Test files | 40+ |
-| Test assertions | 1,332+ |
-| Total LOC | ~87,000 |
+| Test assertions | 1,357+ |
+| Total LOC | ~88,300 |
 | Element types | 10 |
 | Material models | 14+ standard + 3 PD-specific |
 | Failure models | 6 |
@@ -78,9 +78,12 @@ PD Enhancements:
 - Fixed J_inv transposition bug in all element shape_derivatives_global()
 - Fixed hex20_bending_test NaN: switched from explicit dynamic to static solver, fixed serendipity mesh generation (tensor-product grid created orphan nodes with zero stiffness), added NaN detection
 - Robustness guards: NaN/Inf detection in CG solver (RHS, residual, pAp diagnostic), DirectSolver solution scan, element assembly NaN skip, zero diagonal detection, solution NaN scan
+- **Arc-length method**: Crisfield's cylindrical method for snap-through/buckling, predictor-corrector with adaptive step sizing, integrated into FEMStaticSolver via `solve_arc_length()`
+- **PETSc integration**: Optional scalable solver backend (CG/GMRES/BCGS/PREONLY, Jacobi/ILU/ICC/AMG/LU/Cholesky), behind `NEXUSSIM_HAVE_PETSC` compile guard with CMake `FindPETSc.cmake`
 - Validation test suite: 46 checks across 10 tests (axial, bending, patch, symmetry, PD)
 - Robustness test suite: 36 checks across 18 tests (singular systems, degenerate elements, NaN/Inf propagation)
 - Shell4 solver test suite: 24 checks across 7 tests (DOF detection, cantilever bending, membrane tension, symmetry, rotational BCs, patch test, convergence)
+- Arc-length test suite: 25 checks across 7 tests (1-DOF snap-through, two-bar truss, FEM arch, adaptive step, failure handling, linear sanity, PETSc conditional)
 
 ### Peridynamics (Wave 4 + Enhancements)
 
@@ -128,8 +131,8 @@ PD Enhancements:
 - [x] Validation against analytical solutions (axial, cantilever, patch tests)
 - [x] Fix J_inv transposition bug in all solid elements (hex8, hex20, tet4, tet10, wedge6)
 - [x] Shell4 solver integration (6-DOF auto-detection, local→global transform, mixed mesh support)
-- [ ] Arc-length method for snap-through buckling (optional)
-- [ ] PETSc integration for very large problems (optional)
+- [x] Arc-length method for snap-through buckling (Crisfield's cylindrical, adaptive step)
+- [x] PETSc integration for very large problems (optional, behind NEXUSSIM_HAVE_PETSC)
 
 - [x] Robustness guards (NaN/Inf detection, degenerate element handling, solver diagnostics)
 
@@ -163,7 +166,7 @@ PD Enhancements:
 | `io/` | 14 | Readers (Radioss, LS-DYNA), VTK writer, checkpoint, output |
 | `discretization/` | 11 | Hex8/20, Tet4/10, Shell3/4, Wedge6, Beam2, Truss, Spring |
 | `core/` | 7 | Types, logger, memory, GPU, MPI, exceptions |
-| `solver/` | 4 | Implicit solver, sparse matrix, GPU sparse, FEM static |
+| `solver/` | 6 | Implicit solver, sparse matrix, GPU sparse, FEM static, arc-length, PETSc |
 | `data/` | 4 | Mesh, state, field |
 | `sph/` | 4 | SPH solver, kernel, neighbor search, FEM-SPH coupling |
 | `coupling/` | 3 | Coupling operators, field registry |
@@ -193,8 +196,9 @@ PD Enhancements:
 | `implicit_validation_test.cpp` | 46 | Implicit solver multi-element validation |
 | `fem_robustness_test.cpp` | 36 | Solver robustness guards (NaN, singular, degenerate) |
 | `shell4_solver_test.cpp` | 24 | Shell4 6-DOF solver integration (bending, membrane, BCs, convergence) |
+| `arc_length_test.cpp` | 25 | Arc-length method (snap-through, truss, FEM arch, adaptive, PETSc) |
 | `mpi_partition_test.cpp` | 23 | MPI partitioning |
 
 ---
 
-*Last Updated: 2026-02-18*
+*Last Updated: 2026-02-25*

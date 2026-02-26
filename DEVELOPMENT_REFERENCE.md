@@ -216,52 +216,52 @@ Each material model must have:
 | Explicit Central Difference | Time integration | ✅ Production | Dynamics, wave propagation |
 | CFL Timestep | Stability control | ✅ Production | Automatic dt estimation |
 | Rayleigh Damping | Energy dissipation | ✅ Production | Numerical stability |
+| Newton-Raphson | Nonlinear | ✅ Production | Static/implicit analysis |
+| Newmark-β | Implicit dynamics | ✅ Production | Structural dynamics |
+| CG Solver | Iterative linear | ✅ Production | SPD systems |
+| Direct LU | Dense linear | ✅ Production | Small systems |
+| Arc-Length (Crisfield) | Path tracing | ✅ Production | Snap-through, buckling |
+| PETSc Backend | Scalable linear | ✅ Optional | Very large problems |
 
-#### Planned Solvers (Phase 3-4)
+#### Implemented Solvers (All Complete)
 
-**Implicit Time Integration** (2-3 months):
+**Implicit Time Integration** ✅:
 
-1. **Newmark-β Method** (2-3 weeks)
-   ```
-   u_{n+1} = u_n + Δt·v_n + Δt²[(1-2β)a_n + 2β·a_{n+1}]/2
-   v_{n+1} = v_n + Δt·[(1-γ)a_n + γ·a_{n+1}]
-   ```
+1. **Newmark-β Method** ✅
    - Use case: Structural dynamics with large timesteps
-   - Parameters: β, γ (typically β=0.25, γ=0.5)
-   - Stability: Unconditionally stable for β ≥ 0.25
+   - Parameters: β=0.25, γ=0.5 (average acceleration, unconditionally stable)
+   - Implementation: `NewmarkIntegrator`, `FEMImplicitDynamicSolver`
 
-2. **Generalized-α Method** (2-3 weeks)
-   - High-frequency dissipation control
-   - Better than Newmark for stiff problems
-
-3. **Quasi-Static Solver** (1 week)
-   - Limit of implicit dynamics (ρ → 0)
+2. **Quasi-Static Solver** ✅
+   - `FEMStaticSolver` with `solve_linear()` and load stepping
    - Applications: Forming, assembly processes
 
-**Nonlinear Solvers** (1-2 months):
+**Nonlinear Solvers** ✅:
 
-4. **Newton-Raphson** (2-3 weeks)
-   ```
-   K_tangent · Δu = R_residual
-   u_{i+1} = u_i + Δu
-   ```
-   - Quadratic convergence
-   - Requires tangent stiffness assembly
+3. **Newton-Raphson** ✅
+   - Quadratic convergence with callback-based architecture
+   - Backtracking line search for robustness
+   - Implementation: `NewtonRaphsonSolver`
 
-5. **Line Search** (1 week)
-   - Robustness enhancement for Newton-Raphson
-   - Prevents divergence
+4. **Arc-Length Method** ✅
+   - Crisfield's cylindrical method with bordering technique
+   - Predictor-corrector with adaptive step sizing
+   - Snap-through / snap-back / post-buckling path tracing
+   - Implementation: `ArcLengthSolver`, `FEMStaticSolver::solve_arc_length()`
 
-6. **Arc-Length Method** (1 week)
-   - Snap-through / snap-back problems
-   - Buckling and post-buckling
+**Linear Solvers** ✅:
 
-**Linear Solvers** (via PETSc):
+5. **CG Solver** ✅ — Jacobi-preconditioned conjugate gradient for SPD systems
+6. **Direct LU** ✅ — Dense LU with partial pivoting for small systems
+7. **PETSc Integration** ✅ (Optional, behind `NEXUSSIM_HAVE_PETSC`)
+   - KSP types: CG, GMRES, BiCGSTAB, PREONLY
+   - Preconditioners: None, Jacobi, ILU, ICC, AMG, LU, Cholesky
+   - CMake: `NEXUSSIM_ENABLE_PETSC=ON`, uses `FindPETSc.cmake`
 
-7. **PETSc Integration** (2-3 weeks)
-   - Sparse matrix solvers: GMRES, BiCGSTAB, CG
-   - Preconditioners: ILU, AMG, Jacobi
-   - Parallel scalability
+**Future Solvers** (optional enhancements):
+
+- [ ] Generalized-α method (high-frequency dissipation control)
+- [ ] GMRES/BiCGSTAB iterative solvers (native, without PETSc)
 
 #### Solver Selection Guide
 
