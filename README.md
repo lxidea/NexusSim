@@ -1,81 +1,38 @@
-# NexusSim - Next-Generation Computational Mechanics Framework
+# NexusSim — Next-Generation Computational Mechanics Framework
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![C++20](https://img.shields.io/badge/C++-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
 [![CMake](https://img.shields.io/badge/CMake-3.25+-blue.svg)](https://cmake.org/)
 
-Modern, GPU-accelerated computational mechanics solver for multi-physics simulations at exascale.
+NexusSim is a modern, GPU-portable computational mechanics framework for multi-physics
+simulations. It provides a unified platform for the Finite Element Method (FEM), Smoothed
+Particle Hydrodynamics (SPH), and Peridynamics (PD), with hardware portability through the
+Kokkos programming model.
 
----
+## Features
 
-## Project Context
+**Finite Elements** — 10 element types (Hex8, Hex20, Tet4, Tet10, Wedge6, Shell4, Shell3,
+Beam2, Truss, Spring/Damper), 14 material models, 6 failure criteria.
 
-> **For complete project context, ecosystem details, and session recovery info, see [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md)**
+**Solvers** — Explicit dynamics (central difference, adaptive timestep, subcycling),
+implicit statics and dynamics (Newton-Raphson, Newmark-beta, arc-length method),
+optional PETSc backend.
 
-### What This Project Is
+**Contact** — Penalty, node-to-surface, surface-to-surface, mortar, Hertzian, tied
+contact with failure, Coulomb friction.
 
-NexusSim is part of a larger **multi-physics simulation platform** initiative:
+**Multi-Physics** — Weakly compressible SPH, bond-based / state-based / correspondence
+peridynamics, FEM-SPH and FEM-PD coupling (Arlequin, mortar, morphing, adaptive),
+thermal analysis, ALE mesh management.
 
-```
-Parent Project: /mnt/d/_working_/FEM-PD/
-├── OpenRadioss/       → Legacy Fortran FEM (reference implementation)
-├── PeriSys-Haoran/    → CUDA Peridynamics solver (fracture/fragmentation)
-├── claude-radioss/    → THIS PROJECT - NexusSim unified C++20/Kokkos framework
-└── docs/              → Cross-project specifications
-```
+**Composites** — Classical Lamination Theory, ABD matrix, thermal residual stress,
+interlaminar shear, progressive failure analysis.
 
-### Vision
+**I/O** — LS-DYNA and Radioss readers, VTK writer, checkpoint/restart, time history,
+animation output.
 
-1. **Migrate from OpenRadioss** - Port critical FEM functionality to modern C++20/Kokkos with GPU acceleration
-2. **Integrate Peridynamics** - Couple with PeriSys for crack propagation and fragmentation
-3. **Unified Multi-Physics** - FEM + SPH + Peridynamics + DEM in one framework
-4. **Exascale Performance** - 80% efficiency at 10K cores, 5x+ GPU speedup
-
-### Current Status (2026-02-25)
-
-```
-Wave 0: Foundation           [████████████████████] 100% ✅
-Wave 1: Preprocessing/Mesh   [███████████████░░░░░]  75% ✅
-Wave 2: Explicit Solver      [████████████████████] 100% ✅
-Wave 3: Implicit Solver      [████████████████████] 100% ✅
-Wave 4: Multi-Physics        [████████████████████] 100% ✅
-Gap Waves 1-8: Feature Closure [████████████████████] 100% ✅
-```
-
----
-
-## Features (Updated 2026-02-25)
-
-**Core FEM**:
-- ✅ **10 Element Types**: Hex8, Hex20, Tet4, Tet10, Shell3, Shell4, Wedge6, Beam2, Truss, Spring/Damper
-- ✅ **GPU Acceleration**: Kokkos parallel kernels (298M DOFs/sec on OpenMP)
-- ✅ **Explicit Dynamics**: Central difference, adaptive timestep, subcycling
-- ✅ **14+ Material Models**: Elastic, Von Mises, Johnson-Cook, Neo-Hookean, Mooney-Rivlin, Ogden, orthotropic, foam, crushable foam, honeycomb, viscoelastic, Cowper-Symonds, Zhao, piecewise-linear, tabulated, rigid, null
-- ✅ **6 Failure Models**: Hashin, Tsai-Wu, Chang-Chang, GTN, GISSMO, tabulated
-- ✅ **Contact**: Penalty, node-to-surface, mortar, Hertzian, tied (with failure), Coulomb friction
-- ✅ **Element Erosion**: 15+ failure criteria, mass redistribution
-
-**Implicit Solver (Complete)**:
-- ✅ **Static & Dynamic**: FEMStaticSolver, FEMImplicitDynamicSolver (Newmark-β)
-- ✅ **Linear Solvers**: CG (Jacobi preconditioned), Direct LU
-- ✅ **Newton-Raphson**: Line search, load stepping
-- ✅ **Arc-Length Method**: Crisfield's cylindrical method for snap-through/buckling, adaptive step sizing
-- ✅ **PETSc Integration**: Optional scalable backend (CG/GMRES/LU/AMG), behind compile guard
-- ✅ **Shell4 6-DOF**: Auto-detection, local→global transform, mixed mesh support
-
-**Multi-Physics**:
-- ✅ **SPH Solver**: Weakly compressible, multiple kernels (Cubic, Wendland, Quintic)
-- ✅ **FEM-SPH Coupling**: Penalty + pressure coupling for FSI
-- ✅ **Thermal Coupling**: Conduction, thermo-mechanical effects
-- ✅ **Peridynamics**: Bond-based, state-based, correspondence PD with FEM coupling
-- ✅ **Composite Laminates**: CLT, thermal residual stress, progressive failure, strength envelopes
-
-**Infrastructure**:
-- ✅ **Modern C++20**: Kokkos for GPU portability
-- ✅ **I/O**: VTK, Radioss, LS-DYNA readers, checkpoint/restart, enhanced output
-- ✅ **Sensors & Controls**: 5 sensor types with CFC filtering, 8 control actions
-- ✅ **ALE**: 3 smoothing methods, 2 advection methods
-- ✅ **5 EOS Models**: Ideal Gas, Gruneisen, JWL, polynomial, tabulated
+**Sensors and Controls** — 5 sensor types with CFC filtering (SAE J211), 8 control
+action types for runtime simulation steering.
 
 ## Quick Start
 
@@ -83,205 +40,111 @@ Gap Waves 1-8: Feature Closure [████████████████
 
 - C++20 compiler (GCC 11+, Clang 14+, MSVC 2022+)
 - CMake 3.25+
-- Conan 2.0 or vcpkg
-- MPI implementation (OpenMPI 4.1+, MPICH, Intel MPI)
-- Optional: CUDA 11.8+ or ROCm 5.4+ for GPU support
+- Kokkos 3.7+ (bundled in `external/`)
 
-### Build from Source
+### Build
 
 ```bash
-# Clone repository
-git clone https://github.com/nexussim/nexussim.git
-cd nexussim
+cmake -S . -B build \
+  -DNEXUSSIM_ENABLE_MPI=OFF \
+  -DNEXUSSIM_BUILD_PYTHON=OFF
 
-# Install dependencies with Conan
-conan install . --output-folder=build --build=missing
-
-# Configure and build
-cmake --preset conan-release
-cmake --build --preset conan-release
-
-# Run tests
-ctest --preset conan-release
-```
-
-### Using vcpkg
-
-```bash
-# Install dependencies
-vcpkg install eigen3 spdlog hdf5 catch2 pybind11
-
-# Configure with vcpkg toolchain
-cmake -B build -S . \
-  -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
-  -DCMAKE_BUILD_TYPE=Release
-
-# Build
 cmake --build build -j$(nproc)
 ```
 
-## Example Usage
+### Build with CUDA
 
-### C++ API
+To enable GPU acceleration, build against a CUDA-enabled Kokkos installation:
 
-```cpp
-#include <nexussim/nexussim.hpp>
+```bash
+cmake -S . -B build-cuda \
+  -DCMAKE_CXX_COMPILER=/usr/local/bin/nvcc_wrapper \
+  -DKokkos_DIR=/usr/local/lib/cmake/Kokkos \
+  -DNEXUSSIM_ENABLE_GPU=ON \
+  -DNEXUSSIM_ENABLE_MPI=OFF \
+  -DNEXUSSIM_BUILD_PYTHON=OFF
 
-int main() {
-    // Create mesh
-    auto mesh = nxs::Mesh::from_file("model.msh");
-
-    // Define material
-    auto steel = nxs::Material::elastic(210e9, 0.3, 7850);
-    mesh.assign_material("part1", steel);
-
-    // Create simulation
-    nxs::Simulation sim(mesh);
-    sim.set_solver(nxs::SolverType::Explicit);
-    sim.set_end_time(0.1);
-
-    // Run
-    sim.run();
-
-    return 0;
-}
+cmake --build build-cuda -j$(nproc)
 ```
 
-### Python API
+### Run Tests
 
-```python
-import nexussim as nxs
+```bash
+./build/bin/material_models_test
+./build/bin/implicit_validation_test
+./build/bin/failure_models_test
+```
 
-# Create mesh
-mesh = nxs.Mesh.from_file("model.msh")
+## Example
 
-# Define material (Johnson-Cook)
-aluminum = nxs.Material.johnson_cook(
-    A=324e6, B=114e6, n=0.42, C=0.002, m=1.34
-)
-mesh.assign_material("hood", aluminum)
+```cpp
+#include <nexussim/data/mesh.hpp>
+#include <nexussim/solver/fem_static_solver.hpp>
 
-# Simulation setup
-sim = nxs.Simulation(mesh)
-sim.set_solver(type="explicit", end_time=0.1)
+int main() {
+    // Create a mesh
+    nxs::Mesh mesh(44);
+    // ... define nodes and element connectivity ...
 
-# Multi-GPU configuration
-sim.set_parallel(mpi_ranks=4, gpus_per_rank=2)
+    // Set up the static solver
+    nxs::solver::FEMStaticSolver solver(mesh);
+    solver.set_material(210.0e9, 0.3);  // Steel
 
-# Run
-sim.run()
+    // Apply boundary conditions
+    for (int i = 0; i < 4; ++i)
+        solver.fix_node_all(i);
+    solver.add_force(43, 2, -1000.0);
 
-# Post-process
-results = nxs.Results("output.h5")
-max_stress = results.field("stress").max()
-print(f"Max stress: {max_stress/1e6:.1f} MPa")
+    // Solve and report
+    solver.solve_linear();
+    std::cout << "Max displacement: " << solver.max_displacement() << " m\n";
+    return 0;
+}
 ```
 
 ## Project Structure
 
 ```
 NexusSim/
-├── include/           # Public headers
-│   └── nexussim/
-├── src/               # Implementation
-│   ├── core/          # Infrastructure (memory, threading, GPU, logging)
-│   ├── data/          # Data structures (Mesh, Field, State)
-│   ├── discretization/# FEM, meshfree, coupling
-│   ├── materials/     # Material models
-│   ├── solvers/       # Time integration, linear/nonlinear solvers
-│   ├── physics/       # Physics modules (solid, fluid, thermal, EM)
-│   ├── contact/       # Contact mechanics
-│   ├── io/            # Input/output (HDF5, VTK, Exodus)
-│   └── tests/         # Unit and integration tests
-├── python/            # Python bindings
-├── docs/              # Documentation and specifications
-└── examples/          # Example programs
+├── include/nexussim/       Public headers (126 files)
+│   ├── core/               Type system, exceptions, GPU, logging, memory, MPI
+│   ├── data/               Mesh, Field, State containers
+│   ├── discretization/     Element implementations
+│   ├── solver/             Implicit solvers, sparse matrix
+│   ├── physics/            Materials, failure, composites, EOS, time integration
+│   ├── fem/                Contact, constraints, loads, sensors, controls
+│   ├── io/                 Readers, writers, checkpoint, output
+│   ├── sph/                SPH solver, kernels, coupling
+│   ├── peridynamics/       PD solver, materials, coupling
+│   └── coupling/           Multi-physics coupling operators
+├── src/                    Source files
+├── examples/               Test executables
+├── docs/manual/            Sphinx documentation (HTML + PDF)
+└── cmake/                  CMake find-modules
 ```
 
 ## Documentation
 
-**Quick Start**:
-- [Current TODO](TODO.md) - What to work on now
-- [Development Reference](DEVELOPMENT_REFERENCE.md) - Feature planning guide
-- [Documentation Map](DOCUMENTATION_MAP.md) - Complete navigation
+The full software manual is built with Sphinx and available in both HTML and PDF:
 
-**Detailed Documentation** (see [docs/README.md](docs/README.md) for complete index):
-- [Architecture Design](docs/Unified_Architecture_Blueprint.md)
-- [Progress Analysis](docs/PROGRESS_VS_GOALS_ANALYSIS.md)
-- [Element Library Status](docs/ELEMENT_LIBRARY_STATUS.md)
-- [Known Issues](docs/KNOWN_ISSUES.md)
-- [Coupling Specification](docs/Coupling_GPU_Specification.md)
-- [Migration Roadmap](docs/Legacy_Migration_Roadmap.md)
-- [API Reference](https://nexussim.readthedocs.io) (Coming soon)
+```bash
+cd docs/manual
+make html    # HTML output in _build/html/
+make pdf     # PDF output in docs/NexusSim_Software_Manual.pdf
+make all     # Both
+```
 
-## Roadmap (Updated 2026-02-25)
+Requires: `pip install sphinx sphinx-book-theme myst-parser`
 
-### All Major Development Waves Complete
+## CMake Options
 
-**Wave 0: Foundation** ✅ **100%**
-- [x] C++20/Kokkos project skeleton, data containers, build system, YAML, VTK
-
-**Wave 1: Preprocessing & Mesh** ✅ **75%**
-- [x] Mesh ingestion, programmatic creation, Radioss/LS-DYNA readers
-
-**Wave 2: Explicit Solver** ✅ **100%**
-- [x] 10 element types, GPU kernels, materials, contact, erosion, adaptive timestep
-
-**Phase 3A-C: Advanced Physics** ✅ **100%**
-- [x] Thermal coupling, SPH solver, FEM-SPH coupling, energy monitoring
-
-**Wave 3: Implicit Solver** ✅ **100%**
-- [x] Sparse matrix (CSR), CG/Direct solvers, Newton-Raphson with line search
-- [x] Newmark-β integrator, FEM static & implicit dynamic solvers
-- [x] Shell4 6-DOF integration (auto-detection, local→global transform)
-- [x] Arc-length method (Crisfield's cylindrical, adaptive step sizing)
-- [x] PETSc integration (optional, CG/GMRES/LU/AMG, behind compile guard)
-
-**Wave 4: Peridynamics** ✅ **100%**
-- [x] Bond-based, state-based, correspondence PD, FEM-PD coupling, element morphing
-
-**Gap Waves 1-8: Feature Closure** ✅ **100%**
-- [x] 14 material models, 6 failure models, rigid bodies/constraints, loads, EOS
-- [x] Checkpoint/restart, enhanced output, composites, sensors/controls, ALE
-
-### Remaining Work
-
-- [ ] GPU benchmarks (requires NVIDIA GPU hardware)
-- [ ] Full MPI-parallel solver integration
-- [ ] Automatic mesh refinement
-
-## Performance Targets
-
-| Problem Size | Hardware | Expected Performance |
-|--------------|----------|---------------------|
-| 100K nodes | 1 GPU | 50-100x vs CPU |
-| 1M nodes | 8 GPUs | Linear scaling |
-| 10M nodes | 64 GPUs | 80% scaling efficiency |
-| 100M nodes | 1024 GPUs | Exascale-ready |
-
-## Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+| Option                  | Default | Description                        |
+|-------------------------|---------|------------------------------------|
+| `NEXUSSIM_ENABLE_GPU`   | `ON`    | Enable GPU acceleration via Kokkos |
+| `NEXUSSIM_ENABLE_MPI`   | `ON`    | Enable MPI distributed parallelism |
+| `NEXUSSIM_BUILD_PYTHON` | `ON`    | Build Python bindings (pybind11)   |
+| `NEXUSSIM_ENABLE_PETSC` | `OFF`   | Enable PETSc solver backend        |
 
 ## License
 
-Apache License 2.0 - see [LICENSE](LICENSE) for details.
-
-## Citation
-
-If you use NexusSim in your research, please cite:
-
-```bibtex
-@software{nexussim2025,
-  title = {NexusSim: Next-Generation Computational Mechanics Framework},
-  author = {NexusSim Development Team},
-  year = {2025},
-  url = {https://github.com/nexussim/nexussim}
-}
-```
-
-## Contact
-
-- GitHub Issues: https://github.com/nexussim/nexussim/issues
-- Documentation: https://nexussim.readthedocs.io
-- Email: dev@nexussim.org
+Apache License 2.0 — see [LICENSE](LICENSE) for details.

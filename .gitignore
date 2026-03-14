@@ -54,3 +54,14 @@ Thumbs.db
 # HDF5 files
 *.h5
 *.hdf5
+
+# Sphinx documentation build
+docs/manual/_build/
+
+# Internal development notes (keep local only)
+DEVELOPMENT_REFERENCE.md
+DOCUMENTATION_MAP.md
+TODO.md
+docs/*.md
+!docs/manual/**
+docs/archived_*.cpp
