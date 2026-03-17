@@ -4,7 +4,7 @@
 (ch25_testing)=
 ## Test Suite
 
-The NexusSim test suite comprises 95 test executables containing over 1,400 individual
+The NexusSim test suite comprises 95 test executables containing over 2,100 individual
 assertions. Tests are organized as standalone C++ programs that use a lightweight
 assertion framework.
 
@@ -64,6 +64,15 @@ int main() {
 | `arc_length_test.cpp`            | 25         | Arc-length (snap-through, truss, arch) |
 | `shell4_solver_test.cpp`         | 24         | Shell4 6-DOF solver integration    |
 | `mpi_partition_test.cpp`         | 23         | MPI partitioning                   |
+| `explicit_dynamics_test.cpp`     | 114        | Explicit solver, bulk viscosity, hourglass, energy, erosion |
+| `material_wave10_test.cpp`       | 128        | 20 material models (Hill, Barlat, concrete, fabric, etc.) |
+| `failure_wave11_test.cpp`        | 101        | 12 failure models (J-C, Lemaitre, Puck, FLD, etc.) |
+| `contact_wave12_test.cpp`        | 60         | Contact expansion (self-contact, edge-to-edge, etc.) |
+| `eos_wave13_test.cpp`            | 49         | 8 EOS models (Murnaghan, Tillotson, Sesame, etc.) |
+| `thermal_wave14_test.cpp`        | 49         | Thermal solver (conduction, convection, radiation, coupling) |
+| `elements_wave15_test.cpp`       | 80         | 7 element formulations (thick shell, DKT/DKQ, plane, axi) |
+| `advanced_wave16_test.cpp`       | 77         | 8 advanced capabilities (modal, XFEM, blast, airbag, etc.) |
+| `mpi_wave17_test.cpp`            | 82         | MPI completion (assembly, ghost exchange, decomposition) |
 
 ### Test Categories
 
@@ -122,9 +131,9 @@ echo "$passed passed, $failed failed"
    {ref}`Chapter 2 <ch02_installation>` for GPU build instructions and the GPU Benchmark
    Results section below for performance data.
 
-3. **MPI integration.** Full distributed-memory parallel solver integration is not yet
-   complete. The MPI wrapper and mesh partitioning infrastructure are in place, but the
-   global solver has not been parallelized.
+3. **MPI integration.** The MPI infrastructure includes distributed assembly, ghost
+   exchange, domain decomposition (RCB), parallel contact detection, and load balancing
+   (Wave 17). Full production-scale validation on multi-node clusters is pending.
 
 ### GPU Benchmark Results
 
