@@ -381,3 +381,39 @@ target_link_libraries(enhanced_output_test PRIVATE nexussim)
 # LS-DYNA Reader Extension Tests
 add_executable(lsdyna_reader_ext_test examples/lsdyna_reader_ext_test.cpp)
 target_link_libraries(lsdyna_reader_ext_test PRIVATE nexussim)
+
+# Wave 9: Explicit Dynamics
+add_executable(explicit_dynamics_test examples/explicit_dynamics_test.cpp)
+target_link_libraries(explicit_dynamics_test PRIVATE nexussim)
+
+# Wave 10: Material Models Expansion
+add_executable(material_wave10_test examples/material_wave10_test.cpp)
+target_link_libraries(material_wave10_test PRIVATE nexussim)
+
+# Wave 11: Failure Models Expansion
+add_executable(failure_wave11_test examples/failure_wave11_test.cpp)
+target_link_libraries(failure_wave11_test PRIVATE nexussim)
+
+# Wave 12: Contact Expansion
+add_executable(contact_wave12_test examples/contact_wave12_test.cpp)
+target_link_libraries(contact_wave12_test PRIVATE nexussim)
+
+# Wave 13: EOS Models Expansion
+add_executable(eos_wave13_test examples/eos_wave13_test.cpp)
+target_link_libraries(eos_wave13_test PRIVATE nexussim)
+
+# Wave 14: Thermal Solver
+add_executable(thermal_wave14_test examples/thermal_wave14_test.cpp)
+target_link_libraries(thermal_wave14_test PRIVATE nexussim)
+
+# Wave 15: Element Formulations
+add_executable(elements_wave15_test examples/elements_wave15_test.cpp)
+target_link_libraries(elements_wave15_test PRIVATE nexussim)
+
+# Wave 16: Advanced Capabilities
+add_executable(advanced_wave16_test examples/advanced_wave16_test.cpp)
+target_link_libraries(advanced_wave16_test PRIVATE nexussim)
+
+# Wave 17: MPI Completion
+add_executable(mpi_wave17_test examples/mpi_wave17_test.cpp)
+target_link_libraries(mpi_wave17_test PRIVATE nexussim)
