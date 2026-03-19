@@ -1,0 +1,14 @@
+---
+Checks: >
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  modernize-use-override,
+  modernize-use-nullptr,
+  modernize-use-auto,
+  readability-identifier-naming,
+  -readability-identifier-naming
+WarningsAsErrors: ''
+HeaderFilterRegex: 'include/nexussim/.*'
+FormatStyle: file
+...

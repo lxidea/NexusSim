@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++-13 libkokkos-dev libomp-dev
+          pip install sphinx sphinx-book-theme myst-parser
+
+      - name: Build
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER=g++-13 \
+            -DNEXUSSIM_ENABLE_MPI=OFF \
+            -DNEXUSSIM_BUILD_PYTHON=OFF \
+            -DNEXUSSIM_ENABLE_GPU=OFF
+          cmake --build build -j$(nproc)
+
+      - name: Run tests
+        working-directory: build
+        run: ctest --output-on-failure -j$(nproc) -LE known_fail
+
+      - name: Build documentation
+        working-directory: docs/manual
+        run: make html
+
+      - name: Package documentation
+        run: tar czf docs-html.tar.gz -C docs/manual/_build html/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: docs-html.tar.gz

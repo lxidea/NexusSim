@@ -9,9 +9,13 @@ constraints, and the load and boundary condition subsystems.
 (ch16_contact)=
 ## Contact Mechanics
 
-The contact module (`fem/` directory) provides sixteen contact formulations. These are
+The contact module (`fem/` directory) provides twenty-two contact formulations. These are
 organized from the simplest penalty-based methods to the most sophisticated mortar and
-tied formulations.
+tied formulations. The contact library spans four development waves:
+
+- **Base** (7 types): Penalty, node-to-surface, surface-to-surface, Hertzian, mortar, tied, voxel collision
+- **Wave 12** (9 types): Stiffness scaler, velocity friction, shell thickness, edge-to-edge, segment-based, self-contact, symmetric, rigid-deformable, multi-surface
+- **Wave 21** (6 types): Automatic detection, 2D contact, SPH contact, airbag fabric, contact heat generation, mortar friction
 
 ### Contact Types
 
@@ -167,6 +171,40 @@ forces are accumulated into the rigid body force/moment resultants.
 assigns contact pairs to the appropriate algorithm based on surface type (shell, solid,
 rigid, beam). Manages a global contact table and invokes detection/enforcement for all
 active pairs each time step.
+
+### Wave 21: Contact Refinements
+
+The following additional contact capabilities are available in `fem/contact_wave21.hpp`
+(namespace `nxs::fem`):
+
+**Automatic Contact Detection** — Automated identification of potential contact surfaces
+from the mesh topology. External faces are extracted from the element connectivity,
+grouped by proximity and part ID, and paired for contact enforcement. Eliminates the
+need for manual contact surface definition in complex assemblies.
+
+**2D Contact** — Specialized contact formulation for 2D (plane strain, plane stress, and
+axisymmetric) analyses. Node-to-segment contact with edge-based detection operates in
+the 2D projected plane, significantly reducing the search cost compared to 3D algorithms.
+
+**SPH Contact** — Contact enforcement between SPH particles and FEM surfaces. SPH
+particles are projected onto the nearest FEM surface segment; penalty forces are applied
+when the particle-surface distance falls below the smoothing length $h$.
+
+**Airbag Fabric Contact** — Specialized self-contact for folded airbag fabric meshes.
+Handles the extreme deformation and self-penetration that occur during airbag deployment
+by using a reduced search distance tied to the fabric thickness and a soft penalty
+stiffness that prevents numerical instability in thin-shell contact.
+
+**Contact Heat Generation** — Frictional heating model that computes the heat generated
+at contact interfaces from sliding friction work. The heat flux
+$q = \eta \, \mu \, F_n \, v_{\text{slide}}$ is partitioned between the two contacting
+surfaces based on their thermal properties, coupling to the thermal solver for
+thermo-mechanical contact analysis.
+
+**Mortar Friction** — Enhanced mortar contact formulation with consistent frictional
+treatment. Friction tractions are evaluated at mortar integration points using a
+regularized Coulomb law with return-mapping on the contact surface. Provides superior
+accuracy compared to node-based friction for large-sliding contact problems.
 
 ---
 

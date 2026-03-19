@@ -87,6 +87,49 @@ class FEMSPHCoupling {
 - **Penalty:** Spring forces at the interface proportional to penetration.
 - **Pressure:** Direct pressure interpolation between the FEM surface and SPH particles.
 
+### Wave 19: SPH Enrichment
+
+The SPH module was enriched in Wave 19 (`sph/sph_wave19.hpp`) with seven features
+that address known limitations of standard WCSPH:
+
+**Tensile Instability Fix** — Artificial stress method (Monaghan) that adds a small
+repulsive stress proportional to the kernel value to prevent particle clumping under
+tensile stress states. The correction is tuned by a coefficient $\epsilon$ and
+exponent $n$ (typically $\epsilon = 0.3$, $n = 4$).
+
+**Multi-Phase SPH** — Support for multiple immiscible fluid phases with distinct
+densities, viscosities, and equations of state. Interface forces maintain phase
+separation using a color-function-based surface tension model.
+
+**Boundary Handling** — Improved solid boundary treatment using repulsive boundary
+particles (Lennard-Jones type) and ghost particles for consistent kernel support
+near walls. The boundary particles enforce no-penetration and no-slip conditions
+without kernel truncation artifacts.
+
+**Thermal SPH** — Heat conduction between SPH particles via Cleary's second-derivative
+approximation:
+
+$$
+\frac{dT_i}{dt} = \sum_j \frac{m_j}{\rho_j}
+\frac{4 k_i k_j}{k_i + k_j}
+\frac{T_i - T_j}{|\mathbf{x}_{ij}|^2}
+(\mathbf{x}_{ij} \cdot \nabla W_{ij})
+$$
+
+**MUSCL SPH** — Second-order reconstruction of field variables at particle positions
+using a MUSCL (Monotone Upstream-centered Schemes for Conservation Laws) approach
+with slope limiters to prevent oscillations near discontinuities.
+
+**Particle Shifting** — Anisotropic particle shifting technique (Lind et al.) that
+maintains uniform particle distribution by applying small corrections to particle
+positions based on the local concentration gradient. A free-surface detection
+algorithm prevents shifting of surface particles into the void.
+
+**SPH Damage** — Damage mechanics for SPH particles using a continuum damage variable
+$D \in [0, 1]$ that degrades the particle's stress contribution. When $D = 1$, the
+particle is deactivated and removed from the neighbor list. Compatible with
+Johnson-Cook and Cockcroft-Latham failure criteria.
+
 ---
 
 (ch20_peridynamics)=

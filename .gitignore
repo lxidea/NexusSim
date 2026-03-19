@@ -65,3 +65,15 @@ TODO.md
 docs/*.md
 !docs/manual/**
 docs/archived_*.cpp
+
+# Built binaries directory
+bin/
+
+# CUDA build directory
+build-cuda/
+
+# Vendored/built external sources
+external/kokkos_src/
+
+# VTK output directory
+vtk_output/

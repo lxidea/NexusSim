@@ -408,3 +408,62 @@ class PETScLinearSolver : public LinearSolver {
 
 The solver converts NexusSim's CSR format to PETSc `Mat` and `Vec` objects internally
 and calls `KSPSolve`. PETSc support is enabled via `cmake -DNEXUSSIM_ENABLE_PETSC=ON`.
+
+---
+
+(ch15b_solver_hardening)=
+## Solver Hardening (Wave 22)
+
+The solver hardening module (`fem/solver_wave22.hpp`) provides five production-ready
+enhancements for robust explicit dynamics simulation.
+
+### Mass Scaling
+
+The `MassScaling` class selectively increases the mass of small or stiff elements to
+raise their stable time step, allowing the global time step to be controlled by the
+user rather than dictated by the smallest element. Two modes are supported:
+
+- **Selective mass scaling:** Only elements whose natural time step is below a target
+  $\Delta t_{\text{target}}$ have their mass increased.
+- **Uniform mass scaling:** A global factor $f_m$ is applied to all element masses.
+
+The added mass is tracked separately and reported as a fraction of the original total
+mass. Excessive added mass (>5-10%) indicates mesh quality issues.
+
+### Subcycling
+
+The `SubcyclingManager` class extends the basic `SubcyclingController` with automatic
+group assignment based on element time step ratios. Elements are partitioned into groups
+that advance at integer multiples of the smallest time step. Interface forces between
+groups are interpolated at sub-step boundaries to maintain energy conservation.
+
+### Added Mass Monitoring
+
+The `AddedMassMonitor` class tracks the cumulative mass added by mass scaling and
+provides per-step and per-part diagnostics. Warnings are issued when the added mass
+ratio exceeds a configurable threshold. The monitor integrates with the energy balance
+check to account for the kinetic energy contribution of added mass.
+
+### Dynamic Relaxation
+
+The `DynamicRelaxation` class solves quasi-static problems using critically damped
+explicit dynamics. A global damping factor $\alpha$ is applied to nodal velocities
+each step:
+
+$$
+\mathbf{v}_{n+1/2} = (1 - \alpha) \, \mathbf{v}_{n-1/2} + \Delta t \, \mathbf{a}_n
+$$
+
+Convergence is detected when the kinetic energy drops below a fraction of the peak
+kinetic energy observed during the simulation. The damping factor can be adaptive
+(based on the Rayleigh quotient) or user-specified.
+
+**Application:** Gravity loading, preload, initial stress equilibrium.
+
+### Smooth Contact
+
+The `SmoothContact` class applies temporal smoothing to contact forces to reduce
+high-frequency oscillations in explicit contact simulations. A running-average filter
+with a configurable window width attenuates spurious force spikes that arise from
+discrete contact state changes (e.g., nodes entering/leaving contact). The smoothing
+preserves the impulse (force integral) so that momentum transfer remains accurate.

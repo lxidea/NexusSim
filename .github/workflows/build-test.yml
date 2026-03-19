@@ -1,0 +1,53 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        build_type: [Release, Debug]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake g++-13 \
+            libkokkos-dev \
+            libomp-dev
+
+      - name: Configure CMake
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_CXX_COMPILER=g++-13 \
+            -DNEXUSSIM_ENABLE_MPI=OFF \
+            -DNEXUSSIM_BUILD_PYTHON=OFF \
+            -DNEXUSSIM_ENABLE_GPU=OFF
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Run tests
+        working-directory: build
+        run: ctest --output-on-failure -j$(nproc) -L '!known_fail'
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.build_type }}
+          path: build/Testing/

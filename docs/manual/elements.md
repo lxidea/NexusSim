@@ -4,11 +4,16 @@
 (ch08_elements)=
 ## Finite Elements
 
-The NexusSim element library provides seventeen element formulations spanning three-dimensional
+The NexusSim element library provides twenty-three element formulations spanning three-dimensional
 solids, two-dimensional shells, one-dimensional beams and trusses, discrete spring and
-damper elements, and extended formulations including thick shells, Kirchhoff elements, and
-plane/axisymmetric elements. All element implementations reside in the `discretization/` directory
-and inherit from the abstract base class `nxs::physics::Element`.
+damper elements, and extended formulations including thick shells, Kirchhoff elements,
+plane/axisymmetric elements, and advanced locking-free solid and shell formulations. All
+element implementations reside in the `discretization/` directory and inherit from the
+abstract base class `nxs::physics::Element`. The element library spans three development waves:
+
+- **Base** (10 elements): Hex8, Hex20, Tet4, Tet10, Wedge6, Shell4, Shell3, Beam2, Truss, Spring/Damper
+- **Wave 15** (7 elements): ThickShell8, ThickShell6, DKT, DKQ, Plane, Axisymmetric, Connector
+- **Wave 20** (6 elements): Belytschko-Tsay shell, Pyramid5, MITC4, EAS Hex8, B-bar Hex8, Isogeometric shell
 
 ### Element Base Class
 
@@ -343,3 +348,40 @@ and Tri3 topologies. Integration weights include the $2\pi r$ circumferential fa
 representing spot welds, rivets, or bolts. Transmits forces and moments between two
 nodes with configurable stiffness in all six DOF directions. Supports failure criteria
 based on normal force, shear force, and moment resultants.
+
+---
+
+### Wave 20: Advanced Element Formulations
+
+The following additional elements are available in `discretization/elements_wave20.hpp`
+(namespace `nxs::elements`):
+
+**Belytschko-Tsay Shell** — High-performance 4-node shell element with one-point in-plane
+integration and Belytschko-Tsay hourglass stabilization. The single-point integration
+reduces cost by a factor of 4 compared to full integration, making it the element of
+choice for large-scale explicit crash simulations. Hourglass control uses a combination
+of viscous and stiffness-based stabilization to suppress zero-energy modes.
+
+**Pyramid5** — 5-node pyramid element for transitioning between hexahedral and tetrahedral
+mesh regions. Uses 5 shape functions with a collapsed hexahedral topology. The degenerate
+apex requires special treatment of the Jacobian singularity.
+
+**MITC4** — Mixed Interpolation of Tensorial Components shell element. Eliminates shear
+locking by independently interpolating the transverse shear strain field using tying
+points rather than direct interpolation from nodal rotations. Provides accurate results
+for both thin and thick shell regimes.
+
+**EAS Hex8** — Enhanced Assumed Strain 8-node hexahedron. Augments the standard displacement
+field with internal (element-level) enhanced strain modes that are condensed out at the
+element level. Eliminates volumetric locking and improves bending accuracy without the
+cost of higher-order elements.
+
+**B-bar Hex8** — Selective reduced integration hexahedron using the $\bar{B}$ (B-bar)
+method. The volumetric part of the strain-displacement matrix is replaced with a
+volume-averaged value, preventing volumetric locking for nearly incompressible materials
+while retaining full-integration accuracy for the deviatoric response.
+
+**Isogeometric Shell** — NURBS-based shell element that uses the same basis functions as
+the CAD geometry representation. Provides exact geometry representation and higher
+inter-element continuity ($C^{p-1}$ for degree $p$ NURBS) compared to conventional
+Lagrangian elements. Supports arbitrary polynomial degree with knot-span-based integration.

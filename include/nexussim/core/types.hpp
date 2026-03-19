@@ -96,6 +96,8 @@ enum class FieldLocation {
     Particle
 };
 
+/// Generic element types for mesh/discretization infrastructure.
+/// For FEM-specific element types with documentation, see nxs::physics::ElementType in element.hpp.
 enum class ElementType {
     // Beams
     Beam2,
@@ -128,6 +130,8 @@ enum class ElementType {
     PDNode
 };
 
+/// Generic material type categories for core infrastructure.
+/// For specific material models (54 types), see nxs::physics::MaterialType in material.hpp.
 enum class MaterialType {
     Elastic,
     ElastoPlastic,

@@ -1,0 +1,36 @@
+name: Documentation
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'docs/**'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'docs/**'
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Sphinx
+        run: pip install sphinx sphinx-book-theme myst-parser
+
+      - name: Build HTML documentation
+        working-directory: docs/manual
+        run: make html
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-html
+          path: docs/manual/_build/html/

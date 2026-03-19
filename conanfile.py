@@ -3,7 +3,7 @@ from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout, CMakeDeps
 
 class NexusSimConan(ConanFile):
     name = "nexussim"
-    version = "0.1.0"
+    version = "1.0.0"
     license = "Apache-2.0"
     author = "NexusSim Development Team"
     url = "https://github.com/nexussim/nexussim"

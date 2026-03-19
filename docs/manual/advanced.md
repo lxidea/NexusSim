@@ -246,6 +246,64 @@ lock angle are flagged as manufacturing-infeasible.
 
 ---
 
+(ch25b_ale_wave21)=
+## Advanced ALE (Wave 21)
+
+The ALE module was significantly expanded in Wave 21 (`fem/ale_wave21.hpp`) with six
+production-grade features for multi-material and fluid-structure interaction problems.
+
+### FVM Advection
+
+The `FVMAdvection` class implements a cell-centered finite volume advection scheme in
+conservation form. Fluxes are computed at cell interfaces using an approximate Riemann
+solver (HLL or HLLC). The scheme conserves mass, momentum, and total energy to machine
+precision on uniform grids.
+
+### MUSCL Reconstruction
+
+The `MUSCLReconstruction` class provides second-order spatial accuracy via piecewise-linear
+reconstruction of cell-centered quantities. Slope limiters (MinMod, Van Leer, Superbee)
+prevent spurious oscillations near discontinuities while maintaining second-order accuracy
+in smooth regions. The reconstruction is applied to primitive variables (density, velocity,
+pressure) before flux evaluation.
+
+### 2D ALE
+
+The `ALE2D` class specializes the ALE framework for two-dimensional (plane strain and
+axisymmetric) problems. Mesh smoothing operates in the 2D plane with boundary nodes
+constrained to slide along boundary curves. Advection uses the 2D divergence theorem
+for flux computation, significantly reducing computational cost compared to the 3D solver.
+
+### Multi-Fluid VOF
+
+The `MultiFluidVOF` class implements the Volume-of-Fluid method for tracking interfaces
+between immiscible materials. Each cell stores volume fractions $\alpha_k$ for up to four
+materials ($\sum_k \alpha_k = 1$). Interface reconstruction uses the PLIC (Piecewise
+Linear Interface Calculation) method. Material properties in mixed cells are
+volume-averaged. The advection step transports volume fractions using a geometrically
+split flux algorithm that maintains boundedness ($0 \le \alpha_k \le 1$).
+
+### ALE-FSI Coupling
+
+The `ALEFSICoupling` class manages the interface between ALE fluid domains and
+Lagrangian structural domains. The coupling enforces velocity continuity and pressure
+equilibrium at the fluid-structure interface via a staggered partitioned scheme:
+
+1. Transfer structural velocities to ALE boundary nodes.
+2. Solve the ALE fluid step with the imposed boundary velocity.
+3. Transfer fluid pressures to structural surface loads.
+4. Solve the structural step with the imposed pressure.
+
+### ALE Remapping
+
+The `ALERemapper` class performs conservative remapping of state variables from the
+deformed (Lagrangian) mesh to the smoothed (ALE) mesh. The remapping uses an
+intersection-based algorithm that computes the overlap volumes between old and new cells,
+ensuring exact conservation of mass and momentum. Second-order accuracy is achieved
+through gradient reconstruction within each donor cell.
+
+---
+
 (ch26_parallel)=
 ## Parallel Computing (Wave 17)
 
@@ -303,3 +361,125 @@ analysis. Named phases (assembly, communication, solve) are timed individually v
 `compute_scaling_metrics()` derives speedup $S(n) = T(1)/T(n)$, parallel efficiency
 $E(n) = S(n)/n$, and communication-to-computation ratio. A formatted report is generated
 via `report()`.
+
+---
+
+(ch27_production_io)=
+## Production I/O (Wave 20)
+
+The production I/O module (`io/output_wave20.hpp`) provides six industry-standard output
+format writers for post-processing compatibility with commercial visualization tools.
+
+### Binary Animation Writer
+
+Compact binary format for time-series output with per-step compression. Supports
+selective field output (displacement, velocity, stress, strain, damage) with
+configurable precision (float32 or float64). Significantly smaller file sizes than
+VTK for large models.
+
+### H3D Writer
+
+Altair HyperView H3D format writer for direct visualization in HyperWorks. Writes
+model geometry, nodal results (displacement, velocity), and element results (stress,
+strain, plastic strain) in the structured H3D binary format.
+
+### D3PLOT Writer
+
+LS-DYNA D3PLOT format writer for compatibility with LS-PrePost and other LS-DYNA
+post-processors. Implements the binary database format with control words, geometry
+sections, and state data sections.
+
+### EnSight Gold Writer
+
+CEI EnSight Gold format writer for visualization in EnSight and ParaView. Writes
+geometry (.geo), variable (.var), and case (.case) files following the EnSight Gold
+binary specification.
+
+### Time History Writer
+
+Compact time history format for recording nodal and element quantities at high
+temporal resolution. Supports CSV and binary output with configurable sampling
+intervals. Integrates with the sensor subsystem for synchronized recording.
+
+### Cross-Section Force Writer
+
+Section-cut force/moment output for computing resultant forces through user-defined
+cross-sections. Computes $F_x, F_y, F_z, M_x, M_y, M_z$ by integrating element
+contributions that cross the section plane.
+
+---
+
+(ch28_readers)=
+## Input Readers (Wave 22)
+
+The input reader module (`io/reader_wave22.hpp`) provides four readers for importing
+models from commercial FEA codes.
+
+### Radioss D00 Reader
+
+Full-featured reader for the Radioss Starter deck format (.D00/.D01). Parses node,
+element, material, property, boundary condition, and load cards. Supports the
+block-structured card format with free-field and fixed-field parsing modes.
+
+### LS-DYNA Keyword Reader (Extended)
+
+Extended LS-DYNA keyword reader that significantly expands the supported keyword set
+beyond the base `LSDynaReader`. Adds support for advanced material models
+(`*MAT_024`, `*MAT_054`, etc.), section definitions, contact interfaces, and
+initial/boundary conditions. Validated with 172 test assertions.
+
+### ABAQUS INP Reader
+
+Reader for ABAQUS input files (.inp). Parses `*NODE`, `*ELEMENT`, `*MATERIAL`,
+`*ELASTIC`, `*PLASTIC`, `*BOUNDARY`, `*STEP`, and `*LOAD` keywords. Supports
+element type mapping from ABAQUS nomenclature (C3D8, C3D20R, S4R, etc.) to
+NexusSim element types.
+
+### Model Validator
+
+Post-import validation that checks model completeness and consistency: orphan nodes,
+unconnected elements, missing material assignments, boundary condition conflicts,
+and initial condition sanity checks. Reports warnings and errors with element/node
+IDs for targeted debugging.
+
+---
+
+(ch29_preprocessing)=
+## Preprocessing (Wave 22)
+
+The preprocessing module (`io/preprocess_wave22.hpp`) provides five utilities for
+mesh preparation and model setup.
+
+### Mesh Quality Metrics
+
+The `MeshQualityAnalyzer` class computes element quality metrics including aspect
+ratio, Jacobian ratio (min/max determinant), skewness, warpage (for shells), and
+volume (negative volume detection). Per-element and statistical summaries (min,
+max, mean, histogram) are reported.
+
+### Mesh Repair
+
+The `MeshRepair` class performs automatic mesh cleanup: duplicate node merging
+(within tolerance), collapsed element removal, free-edge detection, and normal
+consistency enforcement. Each repair operation is logged with before/after statistics.
+
+### Automatic Contact Surface Generation
+
+The `AutoContactSurface` class automatically extracts external surfaces from the
+mesh topology for contact definition. Identifies free faces (faces belonging to
+exactly one element), groups them by connectivity and part ID, and generates named
+contact surface definitions.
+
+### Material Assignment
+
+The `MaterialAssigner` class provides bulk material assignment by element block,
+geometric region (bounding box, sphere, cylinder), or element set. Supports
+property inheritance from parent blocks and validation of material-element
+compatibility (e.g., shell properties require shell elements).
+
+### Coordinate Transform
+
+The `CoordinateTransform` class applies geometric transformations to mesh regions:
+translation, rotation (Euler angles or axis-angle), scaling, reflection, and
+cylindrical/spherical coordinate mappings. Transformations can be applied to node
+sets, element blocks, or the entire mesh.

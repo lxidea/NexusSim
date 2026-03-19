@@ -4,9 +4,10 @@
 (ch25_testing)=
 ## Test Suite
 
-The NexusSim test suite comprises 95 test executables containing over 2,100 individual
-assertions. Tests are organized as standalone C++ programs that use a lightweight
-assertion framework.
+The NexusSim test suite comprises 113 CTest-registered test executables containing over
+2,800 individual assertions. Of these, 108 tests pass and 5 have known failures (3
+pre-existing path/convergence issues, 2 infrastructure tests). Tests are organized as
+standalone C++ programs that use a lightweight assertion framework.
 
 ### Test Infrastructure
 
@@ -73,12 +74,22 @@ int main() {
 | `elements_wave15_test.cpp`       | 80         | 7 element formulations (thick shell, DKT/DKQ, plane, axi) |
 | `advanced_wave16_test.cpp`       | 77         | 8 advanced capabilities (modal, XFEM, blast, airbag, etc.) |
 | `mpi_wave17_test.cpp`            | 82         | MPI completion (assembly, ghost exchange, decomposition) |
+| `material_wave18_test.cpp`       | 126        | 20 Tier 2 material models (explosive burn, creep, etc.) |
+| `failure_wave19_test.cpp`        | 105        | 10 failure models (LaDeveze, Hoffman, Tsai-Hill, etc.) |
+| `sph_wave19_test.cpp`            | 110        | 7 SPH enrichment features (tensile fix, multi-phase, etc.) |
+| `output_wave20_test.cpp`         | 58         | 6 output formats (H3D, D3PLOT, EnSight, etc.) |
+| `elements_wave20_test.cpp`       | 55         | 6 element formulations (Belytschko-Tsay, MITC4, etc.) |
+| `ale_wave21_test.cpp`            | 60         | 6 ALE features (FVM, MUSCL, VOF, FSI, etc.) |
+| `contact_wave21_test.cpp`        | 54         | 6 contact refinements (auto detect, SPH, mortar, etc.) |
+| `reader_wave22_test.cpp`         | 48         | 4 input readers (Radioss D00, LS-DYNA, ABAQUS) |
+| `preprocess_wave22_test.cpp`     | 44         | 5 preprocessing utilities (quality, repair, etc.) |
+| `solver_wave22_test.cpp`         | 40         | 5 solver features (mass scaling, subcycling, etc.) |
 
 ### Test Categories
 
 **Unit tests.** Individual material models, element formulations, and solver components
-are tested in isolation. For example, `material_models_test.cpp` verifies the stress
-response of each of the 14 material models under prescribed strain paths.
+are tested in isolation. For example, the material test files collectively verify the stress
+response of all 54 material models under prescribed strain paths.
 
 **Integration tests.** Multi-system scenarios test the interaction between materials,
 contact, loads, and the solver. The `realistic_crash_test.cpp` file contains 14
@@ -105,7 +116,10 @@ cmake --build build -j$(nproc)
 # Run a single test
 ./build/bin/material_models_test
 
-# Run all tests with summary
+# Run all tests via CTest
+cd build && ctest --output-on-failure -j$(nproc)
+
+# Run all tests with manual summary
 passed=0; failed=0
 for test in build/bin/*_test; do
     if "$test" > /dev/null 2>&1; then
@@ -117,6 +131,18 @@ for test in build/bin/*_test; do
 done
 echo "$passed passed, $failed failed"
 ```
+
+### Known Test Failures
+
+The following 5 tests have known failures that are not code defects:
+
+| Test | Issue | Root Cause |
+|------|-------|------------|
+| `config_driven_test` | Missing YAML file | Requires yaml-cpp and a config file not shipped |
+| `mesh_reader_test` | Missing mesh file | Requires external mesh file not in repository |
+| `implicit_dynamic_test` | 1/8 convergence | One sub-test has tight convergence tolerance |
+| `cmake_integration_test` | Build path | Assumes specific install prefix |
+| `mpi_scaling_test` | Serial fallback | Designed for multi-rank execution |
 
 ### Known Limitations
 

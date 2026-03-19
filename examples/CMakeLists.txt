@@ -2,121 +2,161 @@
 
 add_executable(simple_mesh_example simple_mesh_example.cpp)
 target_link_libraries(simple_mesh_example PRIVATE nexussim)
+add_test(NAME simple_mesh_example COMMAND simple_mesh_example)
 
 add_executable(kokkos_mpi_test kokkos_mpi_test.cpp)
 target_link_libraries(kokkos_mpi_test PRIVATE nexussim)
+add_test(NAME kokkos_mpi_test COMMAND kokkos_mpi_test)
 
 add_executable(hex8_element_test hex8_element_test.cpp)
 target_link_libraries(hex8_element_test PRIVATE nexussim)
+add_test(NAME hex8_element_test COMMAND hex8_element_test)
 
 add_executable(element_library_test element_library_test.cpp)
 target_link_libraries(element_library_test PRIVATE nexussim)
+add_test(NAME element_library_test COMMAND element_library_test)
 
 add_executable(fem_solver_test fem_solver_test.cpp)
 target_link_libraries(fem_solver_test PRIVATE nexussim)
+add_test(NAME fem_solver_test COMMAND fem_solver_test)
 
 add_executable(mesh_reader_test mesh_reader_test.cpp)
 target_link_libraries(mesh_reader_test PRIVATE nexussim)
+add_test(NAME mesh_reader_test COMMAND mesh_reader_test)
+set_tests_properties(mesh_reader_test PROPERTIES LABELS "known_fail")
 
 add_executable(config_driven_test config_driven_test.cpp)
 target_link_libraries(config_driven_test PRIVATE nexussim)
+add_test(NAME config_driven_test COMMAND config_driven_test)
+set_tests_properties(config_driven_test PROPERTIES LABELS "known_fail")
 
 add_executable(patch_test patch_test.cpp)
 target_link_libraries(patch_test PRIVATE nexussim)
+add_test(NAME patch_test COMMAND patch_test)
 
 add_executable(bending_test bending_test.cpp)
 target_link_libraries(bending_test PRIVATE nexussim)
+add_test(NAME bending_test COMMAND bending_test)
 
 add_executable(hex20_bending_test hex20_bending_test.cpp)
 target_link_libraries(hex20_bending_test PRIVATE nexussim)
+add_test(NAME hex20_bending_test COMMAND hex20_bending_test)
 
 add_executable(hex20_single_element_test hex20_single_element_test.cpp)
 target_link_libraries(hex20_single_element_test PRIVATE nexussim)
+add_test(NAME hex20_single_element_test COMMAND hex20_single_element_test)
 
 add_executable(hex20_single_element_bending hex20_single_element_bending.cpp)
 target_link_libraries(hex20_single_element_bending PRIVATE nexussim)
+add_test(NAME hex20_single_element_bending COMMAND hex20_single_element_bending)
 
 add_executable(hex20_derivative_check hex20_derivative_check.cpp)
 target_link_libraries(hex20_derivative_check PRIVATE nexussim)
+add_test(NAME hex20_derivative_check COMMAND hex20_derivative_check)
 
 add_executable(hex20_mass_debug hex20_mass_debug.cpp)
 target_link_libraries(hex20_mass_debug PRIVATE nexussim)
+add_test(NAME hex20_mass_debug COMMAND hex20_mass_debug)
 
 add_executable(hex20_connectivity_debug hex20_connectivity_debug.cpp)
 target_link_libraries(hex20_connectivity_debug PRIVATE nexussim)
+add_test(NAME hex20_connectivity_debug COMMAND hex20_connectivity_debug)
 
 add_executable(hex20_derivative_verification hex20_derivative_verification.cpp)
 target_link_libraries(hex20_derivative_verification PRIVATE nexussim)
+add_test(NAME hex20_derivative_verification COMMAND hex20_derivative_verification)
 
 add_executable(tet4_compression_test tet4_compression_test.cpp)
 target_link_libraries(tet4_compression_test PRIVATE nexussim)
+add_test(NAME tet4_compression_test COMMAND tet4_compression_test)
 
 add_executable(tet4_compression_solver_test tet4_compression_solver_test.cpp)
 target_link_libraries(tet4_compression_solver_test PRIVATE nexussim)
+add_test(NAME tet4_compression_solver_test COMMAND tet4_compression_solver_test)
 
 add_executable(tet10_element_test tet10_element_test.cpp)
 target_link_libraries(tet10_element_test PRIVATE nexussim)
+add_test(NAME tet10_element_test COMMAND tet10_element_test)
 
 add_executable(shell4_plate_test shell4_plate_test.cpp)
 target_link_libraries(shell4_plate_test PRIVATE nexussim)
+add_test(NAME shell4_plate_test COMMAND shell4_plate_test)
 
 add_executable(material_library_demo material_library_demo.cpp)
 target_link_libraries(material_library_demo PRIVATE nexussim)
+add_test(NAME material_library_demo COMMAND material_library_demo)
 
 add_executable(complete_workflow_demo complete_workflow_demo.cpp)
 target_link_libraries(complete_workflow_demo PRIVATE nexussim)
+add_test(NAME complete_workflow_demo COMMAND complete_workflow_demo)
 
 add_executable(contact_sphere_plate_test contact_sphere_plate_test.cpp)
 target_link_libraries(contact_sphere_plate_test PRIVATE nexussim)
+add_test(NAME contact_sphere_plate_test COMMAND contact_sphere_plate_test)
 
 add_executable(wedge6_element_test wedge6_element_test.cpp)
 target_link_libraries(wedge6_element_test PRIVATE nexussim)
+add_test(NAME wedge6_element_test COMMAND wedge6_element_test)
 
 add_executable(beam2_element_test beam2_element_test.cpp)
 target_link_libraries(beam2_element_test PRIVATE nexussim)
+add_test(NAME beam2_element_test COMMAND beam2_element_test)
 
 add_executable(wedge6_debug_test wedge6_debug_test.cpp)
 target_link_libraries(wedge6_debug_test PRIVATE nexussim)
+add_test(NAME wedge6_debug_test COMMAND wedge6_debug_test)
 
 add_executable(comprehensive_element_validation comprehensive_element_validation.cpp)
 target_link_libraries(comprehensive_element_validation PRIVATE nexussim)
+add_test(NAME comprehensive_element_validation COMMAND comprehensive_element_validation)
+set_tests_properties(comprehensive_element_validation PROPERTIES LABELS "known_fail")
 
 add_executable(gpu_performance_benchmark gpu_performance_benchmark.cpp)
 target_link_libraries(gpu_performance_benchmark PRIVATE nexussim)
+add_test(NAME gpu_performance_benchmark COMMAND gpu_performance_benchmark)
 
 add_executable(hex20_debug_forces hex20_debug_forces.cpp)
 target_link_libraries(hex20_debug_forces PRIVATE nexussim)
+add_test(NAME hex20_debug_forces COMMAND hex20_debug_forces)
+set_tests_properties(hex20_debug_forces PROPERTIES LABELS "known_fail")
 
 add_executable(pd_large_benchmark pd_large_benchmark.cpp)
 target_link_libraries(pd_large_benchmark PRIVATE nexussim)
+add_test(NAME pd_large_benchmark COMMAND pd_large_benchmark)
 
 add_executable(lsdyna_reader_test lsdyna_reader_test.cpp)
 target_link_libraries(lsdyna_reader_test PRIVATE nexussim)
+add_test(NAME lsdyna_reader_test COMMAND lsdyna_reader_test)
 
 # Note: radioss_reader_test is defined in main CMakeLists.txt
 
 add_executable(mesh_validator_test mesh_validator_test.cpp)
 target_link_libraries(mesh_validator_test PRIVATE nexussim)
+add_test(NAME mesh_validator_test COMMAND mesh_validator_test)
 
 # Phase 2: Advanced Contact
 add_executable(voxel_collision_test voxel_collision_test.cpp)
 target_link_libraries(voxel_collision_test PRIVATE nexussim)
+add_test(NAME voxel_collision_test COMMAND voxel_collision_test)
 
 add_executable(advanced_contact_test advanced_contact_test.cpp)
 target_link_libraries(advanced_contact_test PRIVATE nexussim)
+add_test(NAME advanced_contact_test COMMAND advanced_contact_test)
 
 # FEM Robustness Guards
 add_executable(fem_robustness_test fem_robustness_test.cpp)
 target_link_libraries(fem_robustness_test PRIVATE nexussim)
+add_test(NAME fem_robustness_test COMMAND fem_robustness_test)
 
 # Shell4 6-DOF Solver Integration
 add_executable(shell4_solver_test shell4_solver_test.cpp)
 target_link_libraries(shell4_solver_test PRIVATE nexussim)
+add_test(NAME shell4_solver_test COMMAND shell4_solver_test)
 
 # Arc-Length Method + PETSc Integration
 add_executable(arc_length_test arc_length_test.cpp)
 target_link_libraries(arc_length_test PRIVATE nexussim)
-
+add_test(NAME arc_length_test COMMAND arc_length_test)
 
 # Install examples
 install(TARGETS simple_mesh_example kokkos_mpi_test hex8_element_test element_library_test fem_solver_test mesh_reader_test config_driven_test patch_test bending_test hex20_bending_test

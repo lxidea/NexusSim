@@ -11,9 +11,13 @@ implemented in the `physics/` directory and its subdirectories `physics/failure/
 (ch09_materials)=
 ## Material Models
 
-NexusSim provides thirty-four continuum material models for finite element analysis and
+NexusSim provides fifty-four continuum material models for finite element analysis and
 three additional material models for peridynamics. All FEM material models share a common
-interface and data structure.
+interface and data structure. The material library spans four development waves:
+
+- **Wave 1** (14 models): Core elasticity, plasticity, hyperelasticity, foam, and rate-dependent models
+- **Wave 10** (20 models): Anisotropic plasticity, advanced rate models, cohesive zone, and specialty materials
+- **Wave 18** (20 models): Tier 2 materials including explosive burn, creep, Drucker-Prager, and programmed detonation
 
 ### Material Data Structures
 
@@ -649,6 +653,223 @@ The constitutive update uses the orthotropic framework with rate-adjusted proper
 
 ---
 
+### Wave 18: Tier 2 Material Models
+
+The following twenty material models are available in `physics/material_wave18.hpp`
+(namespace `nxs::physics`):
+
+#### Explosive Burn
+
+Programmed detonation material with Chapman-Jouguet detonation pressure and a
+burn fraction $F$ that ramps from 0 to 1 based on detonation arrival time. Couples
+with JWL EOS for detonation product expansion.
+
+**Application:** High-explosive charges, shaped charges, mining blast.
+
+---
+
+#### Porous Elastic
+
+Linear elastic model with pressure-dependent bulk modulus for porous media. The
+porosity $n$ evolves with volumetric strain, and effective stress is computed
+via Terzaghi's principle.
+
+**Application:** Saturated soils, biological tissue, porous ceramics.
+
+---
+
+#### Brittle Fracture
+
+Rankine-type material with smeared cracking. Cracks initiate when the maximum
+principal stress exceeds the tensile strength $f_t$; post-crack behavior follows
+a linear softening curve governed by the fracture energy $G_f$.
+
+**Application:** Glass, ceramics, mortar joints.
+
+---
+
+#### Creep
+
+Norton power-law creep model:
+
+$$
+\dot{\varepsilon}^c = A \, \sigma_{\text{eq}}^n \, \exp(-Q / RT)
+$$
+
+where $A$ is the creep coefficient, $n$ is the stress exponent, $Q$ is the
+activation energy, and $T$ is the absolute temperature.
+
+**Application:** High-temperature turbine blades, nuclear components, solder joints.
+
+---
+
+#### Kinematic Hardening
+
+Prager kinematic hardening model with a back-stress tensor $\boldsymbol{\alpha}$
+that translates the yield surface in stress space:
+
+$$
+f = \|\mathbf{s} - \boldsymbol{\alpha}\| - \sqrt{2/3} \, \sigma_y = 0
+$$
+
+**Application:** Cyclic loading, low-cycle fatigue, Bauschinger effect.
+
+---
+
+#### Drucker-Prager (FEM)
+
+Smooth Drucker-Prager yield surface with associated or non-associated flow:
+
+$$
+f = \sqrt{J_2} + \alpha \, I_1 - k = 0
+$$
+
+where $\alpha$ and $k$ are derived from the friction angle $\phi$ and cohesion $c$.
+
+**Application:** Geomaterials, soils, rock masses, concrete.
+
+---
+
+#### Tabulated Composite
+
+Orthotropic composite with stress-strain response defined by tabulated curves in
+each material direction. Supports separate tension and compression curves.
+
+**Application:** Composites with experimentally measured direction-dependent behavior.
+
+---
+
+#### Ply Degradation
+
+Progressive ply-by-ply stiffness degradation model for laminated composites.
+Failed plies have their moduli reduced according to user-specified degradation
+factors, with load redistribution to intact plies.
+
+**Application:** Impact damage in composite laminates, post-failure load paths.
+
+---
+
+#### Orthotropic Plastic
+
+Anisotropic plasticity with orthotropic elastic behavior and Hill-type yield
+surface. Separate yield stresses and hardening curves for each material direction.
+
+**Application:** Rolled metals and drawn tubes with directional properties.
+
+---
+
+#### Pinching Material
+
+Cyclic material model with stiffness and strength degradation, pinching
+(narrowing of hysteresis loops), and unloading/reloading rules for seismic
+analysis.
+
+**Application:** Reinforced concrete frames, masonry, timber connections under seismic loading.
+
+---
+
+#### Frequency-Dependent Viscoelastic
+
+Complex modulus representation $G^*(\omega) = G'(\omega) + i \, G''(\omega)$
+with storage and loss moduli provided as tabulated functions of frequency.
+Time-domain response is recovered via Prony series fitting.
+
+**Application:** Vibration isolation, NVH analysis, polymer bushings.
+
+---
+
+#### Generalized Viscoelastic
+
+Multi-branch Maxwell model with arbitrary number of relaxation branches for
+both deviatoric and volumetric response. Each branch has independent relaxation
+time and modulus fraction.
+
+**Application:** Advanced polymer characterization with many relaxation timescales.
+
+---
+
+#### Phase Transformation
+
+Austenite-martensite phase transformation model with kinetics governed by
+temperature and stress state. Transformation strain and latent heat are
+incorporated for coupled thermo-mechanical analysis.
+
+**Application:** TRIP steels, quenching simulation, heat treatment.
+
+---
+
+#### Polynomial Hardening
+
+Hardening law expressed as a polynomial in effective plastic strain:
+
+$$
+\sigma_y = \sum_{i=0}^{N} c_i \, (\bar{\varepsilon}^p)^i
+$$
+
+**Application:** Metals with complex hardening curves that are poorly fit by power laws.
+
+---
+
+#### Viscoplastic Thermal
+
+Rate-dependent plasticity with full temperature coupling. Flow stress depends
+on strain, strain rate, and temperature via independent multiplicative factors
+with tabulated input.
+
+**Application:** Hot forming, welding, thermomechanical processing.
+
+---
+
+#### Porous Brittle
+
+Brittle material with porosity-dependent stiffness and strength. Effective
+properties are reduced by the Mori-Tanaka scheme based on void volume fraction.
+
+**Application:** Porous ceramics, trabecular bone, lightweight cementitious materials.
+
+---
+
+#### Anisotropic Crush Foam
+
+Orthotropic foam with independent crush curves in three material directions.
+Each direction has a separate plateau stress and densification strain, allowing
+directional energy absorption design.
+
+**Application:** Directional energy absorbers, honeycomb-like foams.
+
+---
+
+#### Spring Hysteresis
+
+Nonlinear spring element material with user-defined loading and unloading
+curves, producing rate-independent hysteretic behavior. The unloading path
+is parameterized by the maximum historical displacement.
+
+**Application:** Rubber mounts, seismic isolators, nonlinear connections.
+
+---
+
+#### Programmed Detonation
+
+Detonation material with user-specified detonation point and velocity. The
+burn fraction at each element is computed from the detonation wave arrival
+time $t_a = d / D$ where $d$ is the distance from the detonation point and
+$D$ is the detonation velocity.
+
+**Application:** Multi-point initiation, shaped charges, blast sequence design.
+
+---
+
+#### Bonded Interface
+
+Cohesive-zone-like material for bonded interfaces with mixed-mode
+traction-separation law. The effective opening $\delta = \sqrt{\delta_n^2 + \delta_s^2}$
+governs damage evolution with separate normal and shear critical openings.
+
+**Application:** Adhesive joints, composite bonded repairs, delamination.
+
+---
+
 ### Material Library
 
 Predefined material presets are available in `physics/material_library.hpp`:
@@ -667,8 +888,13 @@ Predefined material presets are available in `physics/material_library.hpp`:
 (ch10_failure)=
 ## Failure Models
 
-Eighteen failure models are provided in the `physics/failure/` directory. Each model
+Twenty-eight failure models are provided in the `physics/failure/` directory. Each model
 implements the `FailureModel` interface and operates on the `FailureState` structure.
+The failure library spans three development waves:
+
+- **Wave 2** (6 models): Hashin, Tsai-Wu, Chang-Chang, GTN, GISSMO, Tabulated
+- **Wave 11** (12 models): J-C failure, Cockcroft-Latham, Lemaitre, Puck, FLD, Wilkins, Tuler-Butcher, max stress/strain, energy, Wierzbicki, fabric
+- **Wave 19** (10 models): LaDeveze delamination, Hoffman, Tsai-Hill, RTCl, Mullins, spalling, HC_DSSE, adhesive joint, windshield, generalized energy
 
 ### Failure Data Structures
 
@@ -990,6 +1216,131 @@ Upon failure in one direction, the corresponding stress component is zeroed whil
 remaining directions continue to carry load.
 
 **Application:** Airbag tear, parachute failure, woven composite damage.
+
+---
+
+### Wave 19: Extended Failure Models
+
+The following ten failure models are available in `physics/failure/failure_wave19.hpp`
+(namespace `nxs::failure`):
+
+#### LaDeveze Delamination
+
+Meso-scale damage mechanics model for interlaminar failure. Separate damage
+variables track mode I (opening) and mode II (shearing) delamination with
+thermodynamic conjugate forces driving damage evolution. The model captures
+the coupling between in-plane damage and delamination initiation.
+
+**Application:** Composite delamination under impact and fatigue loading.
+
+---
+
+#### Hoffman Failure Criterion
+
+A generalized quadratic interaction criterion for anisotropic materials that
+distinguishes between tensile and compressive strengths (unlike the symmetric
+Hill criterion):
+
+$$
+F_1\sigma_1 + F_2\sigma_2 + F_{11}\sigma_1^2 + F_{22}\sigma_2^2
++ F_{12}\sigma_1\sigma_2 + F_{66}\sigma_{12}^2 \geq 1
+$$
+
+**Application:** Composites and other anisotropic materials with asymmetric strength.
+
+---
+
+#### Tsai-Hill Failure Criterion
+
+A simplified quadratic interaction criterion derived from Hill's anisotropic
+yield criterion applied to composites:
+
+$$
+\left(\frac{\sigma_1}{X}\right)^2
+- \frac{\sigma_1 \sigma_2}{X^2}
++ \left(\frac{\sigma_2}{Y}\right)^2
++ \left(\frac{\sigma_{12}}{S}\right)^2 \geq 1
+$$
+
+**Application:** Unidirectional composite laminates with moderate stress interaction.
+
+---
+
+#### RTCl (Rice-Tracey-Cockcroft-Latham)
+
+Combined triaxiality and maximum-stress ductile failure criterion. Damage
+accumulates as a weighted integral of plastic strain increments where the
+weight depends on both stress triaxiality (Rice-Tracey) and maximum principal
+stress (Cockcroft-Latham).
+
+**Application:** Ductile metal fracture under complex stress states.
+
+---
+
+#### Mullins Damage
+
+Stress-softening (Mullins effect) model for filled elastomers. Damage is
+driven by the maximum historical strain energy density. Subsequent loading
+below this threshold exhibits reduced stiffness, with recovery upon exceeding
+the historical maximum.
+
+**Application:** Filled rubber components, elastomeric bearings, tires.
+
+---
+
+#### Spalling Failure
+
+Tensile pressure-based spalling criterion for materials under shock loading.
+Failure occurs when the hydrostatic tension exceeds the spall strength $P_{\text{spall}}$.
+The model supports both instantaneous spall and progressive damage accumulation.
+
+**Application:** Plate impact, explosive loading, dynamic fragmentation.
+
+---
+
+#### HC_DSSE (Hosford-Coulomb with DSSE)
+
+Combined Hosford-Coulomb fracture initiation with the Domain of Shell-to-Shell
+Equivalence (DSSE) correction for proportional and non-proportional loading paths.
+The failure locus depends on stress triaxiality, Lode angle parameter, and
+equivalent plastic strain.
+
+**Application:** Sheet metal forming, crashworthiness with complex loading paths.
+
+---
+
+#### Adhesive Joint Failure
+
+Mixed-mode failure criterion for structural adhesive joints. The criterion
+combines normal (peel) and shear stress components with a power-law interaction:
+
+$$
+\left(\frac{\sigma_n}{\sigma_n^c}\right)^a
++ \left(\frac{\tau}{\tau^c}\right)^b \geq 1
+$$
+
+**Application:** Bonded automotive joints, composite repair patches.
+
+---
+
+#### Windshield Failure
+
+Multi-layer failure model for laminated glass windshields. Each glass ply
+uses a Weibull-distributed tensile strength criterion, while the PVB interlayer
+uses a strain-based criterion. Failed glass elements retain compressive
+stiffness while losing tensile capacity.
+
+**Application:** Automotive windshield impact, bird strike, pedestrian safety.
+
+---
+
+#### Generalized Energy Failure
+
+Extended energy-based failure criterion with separate contributions from
+tensile, compressive, and shear strain energy densities, each with independent
+critical thresholds and weighting factors.
+
+**Application:** General-purpose failure for materials with direction-dependent energy limits.
 
 ---
 
