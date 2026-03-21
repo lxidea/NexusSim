@@ -158,6 +158,11 @@ add_executable(arc_length_test arc_length_test.cpp)
 target_link_libraries(arc_length_test PRIVATE nexussim)
 add_test(NAME arc_length_test COMMAND arc_length_test)
 
+# Wave 43: Per-element assemblers + element buffer system
+add_executable(assembly_wave43_test assembly_wave43_test.cpp)
+target_link_libraries(assembly_wave43_test PRIVATE nexussim)
+add_test(NAME assembly_wave43_test COMMAND assembly_wave43_test)
+
 # Install examples
 install(TARGETS simple_mesh_example kokkos_mpi_test hex8_element_test element_library_test fem_solver_test mesh_reader_test config_driven_test patch_test bending_test hex20_bending_test
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/examples)
