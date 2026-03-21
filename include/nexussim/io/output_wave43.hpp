@@ -21,7 +21,7 @@
  *  9. SectionForceExtractor      - section force, section moment
  * 10. OutputDispatcher           - registry + dispatch by EntityType/ResultFieldType
  *
- * Reference: OpenRadioss anim output specification (ANIM/ELEM/*, ANIM/NODA/*),
+ * Reference: OpenRadioss anim output specification (ANIM/ELEM, ANIM/NODA),
  *            OpenRadioss Starter & Engine user guides.
  */
 

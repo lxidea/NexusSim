@@ -125,3 +125,81 @@ nexussim_add_test(contact_wave21_test contact_wave21_test.cpp)
 nexussim_add_test(reader_wave22_test reader_wave22_test.cpp)
 nexussim_add_test(preprocess_wave22_test preprocess_wave22_test.cpp)
 nexussim_add_test(solver_wave22_test solver_wave22_test.cpp)
+
+# -----------------------------------------------------------------------------
+# Wave 23: Architecture Foundation (history[64])
+# -----------------------------------------------------------------------------
+nexussim_add_test(history_extend_test history_extend_test.cpp)
+
+# -----------------------------------------------------------------------------
+# Waves 24-30: Phase 4 Feature Gap Closure
+# -----------------------------------------------------------------------------
+nexussim_add_test(material_wave24_test material_wave24_test.cpp)
+nexussim_add_test(material_wave25_test material_wave25_test.cpp)
+nexussim_add_test(elements_wave26_test elements_wave26_test.cpp)
+nexussim_add_test(ale_wave27_test ale_wave27_test.cpp)
+nexussim_add_test(contact_wave28_test contact_wave28_test.cpp)
+nexussim_add_test(sph_wave29_test sph_wave29_test.cpp)
+nexussim_add_test(solver_wave30_test solver_wave30_test.cpp)
+
+# Wave 31
+nexussim_add_test(material_wave31_test material_wave31_test.cpp)
+# Wave 32
+nexussim_add_test(material_wave32_test material_wave32_test.cpp)
+# Wave 33
+nexussim_add_test(failure_wave33_test failure_wave33_test.cpp)
+# Wave 34
+nexussim_add_test(euler_wave34_test euler_wave34_test.cpp)
+nexussim_add_test(multifluid_wave34_test multifluid_wave34_test.cpp)
+# Wave 35
+nexussim_add_test(contact_wave35_test contact_wave35_test.cpp)
+# Wave 36
+nexussim_add_test(ams_wave36_test ams_wave36_test.cpp)
+nexussim_add_test(xfem_wave36_test xfem_wave36_test.cpp)
+# Wave 37
+nexussim_add_test(coupling_wave37_test coupling_wave37_test.cpp)
+nexussim_add_test(acoustic_wave37_test acoustic_wave37_test.cpp)
+
+# -----------------------------------------------------------------------------
+# Wave 38: Airbag Production, Specialty Elements, Integration Tests
+# -----------------------------------------------------------------------------
+nexussim_add_test(airbag_wave38_test airbag_wave38_test.cpp)
+nexussim_add_test(specialty_wave38_test specialty_wave38_test.cpp)
+nexussim_add_test(integration_wave38_test integration_wave38_test.cpp)
+
+# -----------------------------------------------------------------------------
+# Wave 39: Final Material Laws + Implicit Solver Hardening
+# -----------------------------------------------------------------------------
+nexussim_add_test(material_wave39_test material_wave39_test.cpp)
+nexussim_add_test(implicit_wave39_test implicit_wave39_test.cpp)
+
+# -----------------------------------------------------------------------------
+# Wave 40: Output Format Completion + Starter Parity
+# -----------------------------------------------------------------------------
+nexussim_add_test(output_wave40_test output_wave40_test.cpp)
+nexussim_add_test(starter_wave40_test starter_wave40_test.cpp)
+
+# -----------------------------------------------------------------------------
+# Wave 41: Production Depth - XFEM, Airbag, Coupling, Acoustics
+# -----------------------------------------------------------------------------
+nexussim_add_test(xfem_wave41_test xfem_wave41_test.cpp)
+nexussim_add_test(airbag_wave41_test airbag_wave41_test.cpp)
+nexussim_add_test(coupling_wave41_test coupling_wave41_test.cpp)
+
+# -----------------------------------------------------------------------------
+# Wave 42: Full Parity Validation + Documentation
+# -----------------------------------------------------------------------------
+nexussim_add_test(parity_wave42_test parity_wave42_test.cpp)
+
+# -----------------------------------------------------------------------------
+# Wave 43: Gap Closure — EOS, Loads, Contact Sort, Shell Warp, Constraints,
+#           Multiphysics, Assembly, Output Extractors
+# -----------------------------------------------------------------------------
+nexussim_add_test(eos_wave43_test eos_wave43_test.cpp)
+nexussim_add_test(loads_wave43_test loads_wave43_test.cpp)
+nexussim_add_test(contact_wave43_test contact_wave43_test.cpp)
+nexussim_add_test(shell_wave43_test shell_wave43_test.cpp)
+nexussim_add_test(constraints_wave43_test constraints_wave43_test.cpp)
+nexussim_add_test(multiphysics_wave43_test multiphysics_wave43_test.cpp)
+nexussim_add_test(assembly_wave43_test assembly_wave43_test.cpp)
+nexussim_add_test(output_wave43_test output_wave43_test.cpp)
