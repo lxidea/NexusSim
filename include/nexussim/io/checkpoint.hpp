@@ -97,7 +97,7 @@ static_assert(sizeof(CheckpointHeader) == 64, "Header must be 64 bytes");
 struct MaterialStateData {
     Real strain[6];
     Real stress[6];
-    Real history[32];
+    Real history[physics::MaterialState::NEXUSSIM_HISTORY_SIZE];
     Real vol_strain;
     Real plastic_strain;
     Real temperature;
@@ -113,7 +113,7 @@ struct MaterialStateData {
     void from_material_state(const physics::MaterialState& ms) {
         std::memcpy(strain, ms.strain, 6 * sizeof(Real));
         std::memcpy(stress, ms.stress, 6 * sizeof(Real));
-        std::memcpy(history, ms.history, 32 * sizeof(Real));
+        std::memcpy(history, ms.history, sizeof(history));
         vol_strain = ms.vol_strain;
         plastic_strain = ms.plastic_strain;
         temperature = ms.temperature;
@@ -125,7 +125,7 @@ struct MaterialStateData {
     void to_material_state(physics::MaterialState& ms) const {
         std::memcpy(ms.strain, strain, 6 * sizeof(Real));
         std::memcpy(ms.stress, stress, 6 * sizeof(Real));
-        std::memcpy(ms.history, history, 32 * sizeof(Real));
+        std::memcpy(ms.history, history, sizeof(history));
         ms.vol_strain = vol_strain;
         ms.plastic_strain = plastic_strain;
         ms.temperature = temperature;

@@ -78,9 +78,11 @@ nexussim_add_test(mpi_partition_test mpi_partition_test.cpp)
 nexussim_add_test(comprehensive_benchmark comprehensive_benchmark.cpp)
 
 # Kokkos-only performance test (links directly to Kokkos, not nexussim)
-add_executable(kokkos_performance_test examples/kokkos_performance_test.cpp)
-target_link_libraries(kokkos_performance_test PRIVATE Kokkos::kokkos)
-add_test(NAME kokkos_performance_test COMMAND kokkos_performance_test)
+if(TARGET Kokkos::kokkos)
+    add_executable(kokkos_performance_test examples/kokkos_performance_test.cpp)
+    target_link_libraries(kokkos_performance_test PRIVATE Kokkos::kokkos)
+    add_test(NAME kokkos_performance_test COMMAND kokkos_performance_test)
+endif()
 
 # -----------------------------------------------------------------------------
 # Wave 1-8: Core Capability Tests
@@ -203,3 +205,37 @@ nexussim_add_test(constraints_wave43_test constraints_wave43_test.cpp)
 nexussim_add_test(multiphysics_wave43_test multiphysics_wave43_test.cpp)
 nexussim_add_test(assembly_wave43_test assembly_wave43_test.cpp)
 nexussim_add_test(output_wave43_test output_wave43_test.cpp)
+
+# -----------------------------------------------------------------------------
+# Wave 44: Production Depth — Contact Gap, TH Writer, Sensor Expressions,
+#           Spot Weld, Tuning Constants
+# -----------------------------------------------------------------------------
+nexussim_add_test(contact_wave44_test contact_wave44_test.cpp)
+nexussim_add_test(th_wave44_test th_wave44_test.cpp)
+nexussim_add_test(sensor_wave44_test sensor_wave44_test.cpp)
+nexussim_add_test(spotweld_wave44_test spotweld_wave44_test.cpp)
+nexussim_add_test(tuning_wave44_test tuning_wave44_test.cpp)
+
+# -----------------------------------------------------------------------------
+# MPI test macro — runs test executable under mpiexec with np ranks
+# -----------------------------------------------------------------------------
+macro(nexussim_add_mpi_test target_name source_file np)
+    add_executable(${target_name} examples/${source_file})
+    target_link_libraries(${target_name} PRIVATE nexussim)
+    if(NEXUSSIM_ENABLE_MPI AND MPIEXEC_EXECUTABLE)
+        add_test(NAME ${target_name}
+                 COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np}
+                         $<TARGET_FILE:${target_name}>)
+    else()
+        add_test(NAME ${target_name} COMMAND ${target_name})
+    endif()
+endmacro()
+
+# -----------------------------------------------------------------------------
+# Wave 45: MPI Production + Final Tuning
+# -----------------------------------------------------------------------------
+nexussim_add_mpi_test(mpi_wave45a_test mpi_wave45a_test.cpp 2)
+nexussim_add_mpi_test(mpi_wave45b_test mpi_wave45b_test.cpp 2)
+nexussim_add_mpi_test(mpi_wave45c_test mpi_wave45c_test.cpp 2)
+nexussim_add_mpi_test(mpi_wave45d_test mpi_wave45d_test.cpp 2)
+nexussim_add_mpi_test(mpi_wave45e_test mpi_wave45e_test.cpp 2)

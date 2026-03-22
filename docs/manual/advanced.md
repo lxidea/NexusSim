@@ -2,7 +2,8 @@
 # Part VIII — Advanced Features
 
 This part describes the ALE mesh management module, the sensor and control subsystems,
-the advanced capabilities (Wave 16), and the parallel computing framework (Wave 17).
+the advanced capabilities (Wave 16), the parallel computing framework (Waves 17 + 45),
+and the final tuning subsystem (Wave 45).
 
 ---
 

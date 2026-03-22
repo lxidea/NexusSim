@@ -52,18 +52,15 @@ endif()
 # Find dependencies
 find_package(Threads REQUIRED)
 
-# MPI - Check custom location first
+# MPI
 if(NEXUSSIM_ENABLE_MPI)
-    # Add custom MPICH path
-    set(MPI_HOME "/opt/mpich-4.3.0b1" CACHE PATH "MPICH installation directory")
-    list(APPEND CMAKE_PREFIX_PATH ${MPI_HOME})
-
     find_package(MPI REQUIRED)
     add_compile_definitions(NEXUSSIM_HAVE_MPI)
 
     message(STATUS "MPI found:")
     message(STATUS "  MPI_CXX_COMPILER: ${MPI_CXX_COMPILER}")
     message(STATUS "  MPI_CXX_INCLUDE_DIRS: ${MPI_CXX_INCLUDE_DIRS}")
+    message(STATUS "  MPIEXEC_EXECUTABLE: ${MPIEXEC_EXECUTABLE}")
 endif()
 
 # OpenMP

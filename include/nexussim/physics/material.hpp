@@ -60,7 +60,9 @@ struct MaterialState {
     // Indices 0-6: plastic strain (scalar + tensor), used by J2/JC models
     // Indices 7-15: available for foam/honeycomb/viscoelastic state
     // Indices 16-31: available for advanced models (GTN void fraction, etc.)
-    Real history[32];
+    // Indices 32-63: available for Phase 4 models (Chaboche, JH2, multi-surface, etc.)
+    static constexpr int NEXUSSIM_HISTORY_SIZE = 64;
+    Real history[NEXUSSIM_HISTORY_SIZE];
 
     // Volumetric strain
     Real vol_strain;
@@ -92,7 +94,7 @@ struct MaterialState {
         }
         for (int i = 0; i < 9; ++i) F[i] = 0.0;
         F[0] = F[4] = F[8] = 1.0;  // Identity
-        for (int i = 0; i < 32; ++i) history[i] = 0.0;
+        for (int i = 0; i < NEXUSSIM_HISTORY_SIZE; ++i) history[i] = 0.0;
         vol_strain = 0.0;
         plastic_strain = 0.0;
         temperature = 293.15;  // Room temperature
